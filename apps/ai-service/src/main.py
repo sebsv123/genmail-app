@@ -85,7 +85,7 @@ app.add_middleware(
 @app.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
     """Health check endpoint."""
-    return HealthResponse(status="ok")
+    return HealthResponse(status="ok", service="genmail-ai")
 
 
 @app.get("/")

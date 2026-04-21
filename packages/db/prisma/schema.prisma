@@ -1,0 +1,281 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  OWNER
+  MEMBER
+}
+
+enum LeadStage {
+  NEW
+  NURTURING
+  QUALIFIED
+  CONVERTED
+  UNSUBSCRIBED
+}
+
+enum SequenceMode {
+  EVERGREEN
+  NURTURING_INFINITE
+}
+
+enum SequenceStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum GeneratedEmailStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  SENT
+  REJECTED
+}
+
+enum KnowledgeSourceType {
+  RSS
+  URL
+  DOCUMENT
+  SAMPLE_EMAIL
+}
+
+enum KnowledgeSourceStatus {
+  PENDING
+  PROCESSING
+  READY
+  ERROR
+}
+
+enum AnalyticsEventType {
+  SENT
+  OPENED
+  CLICKED
+  REPLIED
+  UNSUBSCRIBED
+  BOUNCED
+}
+
+// ==================== MODELS ====================
+
+model Business {
+  id                String   @id @default(uuid())
+  name              String
+  slug              String   @unique
+  sector            String
+  brandVoice        String?  @db.Text
+  prohibitedClaims  String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  users             User[]
+  leads             Lead[]
+  sequences         Sequence[]
+  knowledgeSources  KnowledgeSource[]
+
+  @@index([slug])
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String
+  role        UserRole
+  createdAt   DateTime @default(now())
+
+  // Relations
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([email])
+}
+
+model Lead {
+  id            String    @id @default(uuid())
+  email         String
+  name          String
+  phone         String?
+  contextData   Json?
+  stage         LeadStage @default(NEW)
+  intentScore   Float?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  businessId    String
+  business      Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  enrollments   SequenceEnrollment[]
+  generatedEmails GeneratedEmail[]
+  analytics     AnalyticsEvent[]
+  memory        LeadMemory?
+
+  @@index([businessId, stage])
+  @@index([businessId])
+  @@unique([businessId, email])
+}
+
+model Sequence {
+  id          String         @id @default(uuid())
+  name        String
+  mode        SequenceMode
+  status      SequenceStatus @default(DRAFT)
+  goal        String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  businessId  String
+  business    Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  templates   EmailTemplate[]
+  enrollments SequenceEnrollment[]
+
+  @@index([businessId, status])
+  @@index([businessId])
+}
+
+model SequenceEnrollment {
+  id            String           @id @default(uuid())
+  currentStep   Int              @default(0)
+  status        EnrollmentStatus @default(ACTIVE)
+  enrolledAt    DateTime         @default(now())
+  completedAt   DateTime?
+
+  // Relations
+  leadId        String
+  lead          Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  sequenceId    String
+  sequence      Sequence         @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  generatedEmails GeneratedEmail[]
+
+  @@index([leadId])
+  @@index([sequenceId])
+  @@unique([leadId, sequenceId])
+}
+
+model EmailTemplate {
+  id              String   @id @default(uuid())
+  stepNumber      Int
+  subject         String
+  bodyHtml        String   @db.Text
+  bodyText        String   @db.Text
+  copyFramework   String   // AIDA, PAS, BAB, etc.
+  goal            String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  sequenceId      String
+  sequence        Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  generatedEmails GeneratedEmail[]
+
+  @@index([sequenceId, stepNumber])
+  @@index([sequenceId])
+}
+
+model GeneratedEmail {
+  id                String               @id @default(uuid())
+  subject           String
+  previewText       String?
+  bodyHtml          String               @db.Text
+  bodyText          String               @db.Text
+  status            GeneratedEmailStatus @default(DRAFT)
+  qualityScore      Float?
+  qualityRationale  String?
+  usedSources       Json?
+  generatedAt       DateTime             @default(now())
+  sentAt            DateTime?
+
+  // Relations
+  leadId            String
+  lead              Lead                 @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  enrollmentId      String
+  enrollment        SequenceEnrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  templateId        String?
+  template          EmailTemplate?       @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  analytics         AnalyticsEvent[]
+
+  @@index([leadId, status])
+  @@index([leadId])
+  @@index([enrollmentId])
+  @@index([templateId])
+}
+
+model LeadMemory {
+  id              String    @id @default(uuid())
+  topicsUsed      String[]
+  hooksUsed       String[]
+  ctasUsed        String[]
+  claimsMade      String[]
+  lastEngagement  DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  leadId          String    @unique
+  lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+}
+
+model KnowledgeSource {
+  id          String                  @id @default(uuid())
+  type        KnowledgeSourceType
+  name        String
+  url         String?
+  content     String?                 @db.Text
+  embedding   Unsupported("vector(1536)")?
+  status      KnowledgeSourceStatus   @default(PENDING)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  // Relations
+  businessId  String
+  business    Business                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+  @@index([businessId])
+}
+
+model AnalyticsEvent {
+  id                String             @id @default(uuid())
+  type              AnalyticsEventType
+  metadata          Json?
+  occurredAt        DateTime           @default(now())
+
+  // Relations
+  leadId            String
+  lead              Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  generatedEmailId  String?
+  generatedEmail    GeneratedEmail?    @relation(fields: [generatedEmailId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, type])
+  @@index([leadId])
+  @@index([generatedEmailId])
+  @@index([occurredAt])
+}

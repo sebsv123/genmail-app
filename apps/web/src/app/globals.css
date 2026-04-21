@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* GenMail Dark Theme - Professional & Minimal */
+@layer base {
+  :root {
+    /* Base colors - Dark by default */
+    --background: 0 0% 5%;
+    --foreground: 0 0% 95%;
+    
+    /* Cards - Slightly lighter than background */
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
+    
+    /* Popover */
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* Primary - White text on dark */
+    --primary: 0 0% 95%;
+    --primary-foreground: 0 0% 5%;
+    
+    /* Secondary - Subtle gray */
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 95%;
+    
+    /* Muted */
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
+    
+    /* Accent - Blue tint for interactive */
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Destructive - Red for errors */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border - Subtle gray */
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 217 91% 60%;
+    --radius: 0.5rem;
+
+    /* Status colors */
+    --status-new: 200 70% 50%;
+    --status-nurturing: 45 90% 50%;
+    --status-qualified: 280 70% 55%;
+    --status-converted: 150 70% 40%;
+    --status-unsubscribed: 0 0% 40%;
+    
+    /* Sidebar */
+    --sidebar-bg: 0 0% 4%;
+    --sidebar-border: 0 0% 12%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    @apply antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  /* Gradient backgrounds */
+  .bg-gradient-radial {
+    background: radial-gradient(ellipse at top, hsl(var(--secondary)), transparent),
+                radial-gradient(ellipse at bottom, hsl(var(--muted)), transparent);
+  }
+  
+  /* Glass effect for cards */
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl;
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+  
+  /* Status badges */
+  .status-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+  
+  /* Table styles */
+  .data-table {
+    @apply w-full text-sm;
+  }
+  
+  .data-table th {
+    @apply text-left py-3 px-4 font-medium text-muted-foreground border-b border-border;
+  }
+  
+  .data-table td {
+    @apply py-3 px-4 border-b border-border/50;
+  }
+  
+  .data-table tr:last-child td {
+    @apply border-b-0;
+  }
+  
+  /* Skeleton loading */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+  
+  /* Hover row effect */
+  .hover-row:hover {
+    @apply bg-secondary/50;
+  }
+  
+  /* Focus ring */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--sidebar-bg));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Selection color */
+::selection {
+  background: hsl(var(--accent) / 0.3);
+  color: hsl(var(--foreground));
+}

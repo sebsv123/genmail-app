@@ -103,3 +103,48 @@ class ExtractBrandVoiceResponse(BaseModel):
     avg_length: int = Field(..., description="Average email length in words")
     cta_patterns: list[str] = Field(..., description="Common CTA patterns")
     additional_notes: str = Field(default="", description="Additional observations")
+
+
+# ============== GENERATE COLD EMAIL ==============
+
+class ProspectProfile(BaseModel):
+    email: str = Field(..., description="Prospect's email address")
+    first_name: str | None = Field(None, description="Prospect's first name")
+    last_name: str | None = Field(None, description="Prospect's last name")
+    company_name: str | None = Field(None, description="Prospect's company name")
+    company_website: str | None = Field(None, description="Company website")
+    role: str | None = Field(None, description="Job title/role")
+    source_url: str | None = Field(None, description="URL where prospect was found")
+    enrichment_data: dict = Field(default_factory=dict, description="Additional enrichment data")
+
+
+class ICPProfile(BaseModel):
+    sector: str = Field(..., description="Target sector/industry")
+    target_role: str = Field(..., description="Target role/title")
+    pain_points: list[str] = Field(default_factory=list, description="Pain points to address")
+    keywords: list[str] = Field(default_factory=list, description="Keywords for personalization")
+    location: str | None = Field(None, description="Geographic location")
+
+
+class ColdEmailConstraints(BaseModel):
+    max_words: int = Field(default=120, description="Maximum word count")
+    language: str = Field(default="es-ES", description="Target language")
+    prohibited_claims: list[str] = Field(default_factory=list, description="Claims to avoid")
+
+
+class GenerateColdEmailRequest(BaseModel):
+    business_id: str = Field(..., description="Business/tenant ID")
+    brand_voice: str = Field(..., description="Brand voice description")
+    prospect: ProspectProfile = Field(..., description="Prospect information")
+    icp: ICPProfile = Field(..., description="Ideal Customer Profile")
+    step_number: int = Field(..., ge=1, le=3, description="Email step number (1, 2, or 3)")
+    constraints: ColdEmailConstraints = Field(default_factory=ColdEmailConstraints, description="Generation constraints")
+
+
+class GenerateColdEmailResponse(BaseModel):
+    subject: str = Field(..., description="Email subject line")
+    body_html: str = Field(..., description="HTML version of email body")
+    body_text: str = Field(..., description="Plain text version of email body")
+    personalization_hooks: list[str] = Field(..., description="Data points used for personalization")
+    copy_framework_used: str = Field(..., description="Framework used (AIDA, PAS, etc.)")
+    quality_score: float = Field(..., ge=0, le=1, description="Quality score 0-1")

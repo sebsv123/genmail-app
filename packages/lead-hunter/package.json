@@ -1,0 +1,22 @@
+{
+  "name": "@genmail/lead-hunter",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint .",
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@genmail/shared": "workspace:*",
+    "dns": "^0.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

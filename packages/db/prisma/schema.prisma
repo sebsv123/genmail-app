@@ -25,6 +25,7 @@ enum LeadStage {
 enum SequenceMode {
   EVERGREEN
   NURTURING_INFINITE
+  COLD_OUTREACH
 }
 
 enum SequenceStatus {
@@ -47,6 +48,25 @@ enum GeneratedEmailStatus {
   APPROVED
   SENT
   REJECTED
+}
+
+enum ProspectStatus {
+  FOUND
+  VALIDATED
+  APPROVED
+  ENROLLED
+  REPLIED
+  BOUNCED
+  UNSUBSCRIBED
+}
+
+enum ProspectSource {
+  LINKEDIN
+  GOOGLE_MAPS
+  APOLLO
+  HUNTER
+  DIRECTORY
+  MANUAL
 }
 
 enum KnowledgeSourceType {
@@ -89,6 +109,8 @@ model Business {
   leads             Lead[]
   sequences         Sequence[]
   knowledgeSources  KnowledgeSource[]
+  icps              ICP[]
+  prospects         Prospect[]
 
   @@index([slug])
 }
@@ -278,4 +300,95 @@ model AnalyticsEvent {
   @@index([leadId])
   @@index([generatedEmailId])
   @@index([occurredAt])
+}
+
+// ==================== LEAD HUNTER: ICP (Ideal Customer Profile) ====================
+
+model ICP {
+  id            String   @id @default(uuid())
+  sector        String
+  targetRole    String
+  companySize   String?
+  painPoints    String[]
+  location      String?
+  keywords      String[]
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  prospects     Prospect[]
+
+  @@index([businessId])
+  @@index([businessId, isActive])
+}
+
+// ==================== LEAD HUNTER: Prospect ====================
+
+model Prospect {
+  id                String          @id @default(uuid())
+  email             String
+  firstName         String?
+  lastName          String?
+  companyName       String?
+  companyWebsite    String?
+  role              String?
+  phone             String?
+  source            ProspectSource
+  sourceUrl         String?
+  status            ProspectStatus  @default(FOUND)
+  intentScore       Float?
+  enrichmentData    Json?
+  emailVerified     Boolean         @default(false)
+  approvedAt        DateTime?
+  enrolledAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  businessId        String
+  business          Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  icpId             String
+  icp               ICP             @relation(fields: [icpId], references: [id], onDelete: Cascade)
+  
+  coldEmails        ColdEmail[]
+
+  @@index([businessId, status])
+  @@index([icpId])
+  @@unique([businessId, email])
+}
+
+// ==================== LEAD HUNTER: Cold Email ====================
+
+enum ColdEmailStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+}
+
+model ColdEmail {
+  id          String          @id @default(uuid())
+  stepNumber  Int
+  subject     String
+  bodyHtml    String          @db.Text
+  bodyText    String          @db.Text
+  status      ColdEmailStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  openedAt    DateTime?
+  repliedAt   DateTime?
+  generatedAt DateTime        @default(now())
+
+  // Relations
+  prospectId  String
+  prospect    Prospect        @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
 }

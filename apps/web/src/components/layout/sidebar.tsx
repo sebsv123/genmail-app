@@ -10,12 +10,14 @@ import {
   Database, 
   BarChart3, 
   Settings,
-  Sparkles
+  Sparkles,
+  Crosshair
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: Users },
+  { href: "/hunt", label: "Lead Hunter", icon: Crosshair },
   { href: "/sequences", label: "Sequences", icon: Mail },
   { href: "/sources", label: "Sources", icon: Database },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },

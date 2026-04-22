@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, LeadStage, SequenceMode, SequenceStatus, EnrollmentStatus, GeneratedEmailStatus } from '@prisma/client';
+import { PrismaClient, UserRole, LeadStage, SequenceMode, SequenceStatus, EnrollmentStatus, GeneratedEmailStatus, ProspectStatus, ProspectSource } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -7,6 +7,9 @@ async function main() {
 
   // Clean existing data
   await prisma.analyticsEvent.deleteMany();
+  await prisma.coldEmail.deleteMany();
+  await prisma.prospect.deleteMany();
+  await prisma.iCP.deleteMany();
   await prisma.generatedEmail.deleteMany();
   await prisma.leadMemory.deleteMany();
   await prisma.sequenceEnrollment.deleteMany();
@@ -332,6 +335,161 @@ Saludos,
   ]);
   console.log(`✅ Created ${knowledgeSources.length} knowledge sources`);
 
+  // Create Lead Hunter ICP
+  const icp = await prisma.iCP.create({
+    data: {
+      businessId: business.id,
+      sector: 'Clínicas dentales Madrid',
+      targetRole: 'Director',
+      companySize: '10-50',
+      painPoints: ['Falta de pacientes nuevos', 'Baja tasa de conversión web', 'Competencia agresiva'],
+      location: 'Madrid, España',
+      keywords: ['clínica dental', 'odontología', 'implantes', 'ortodoncia'],
+      isActive: true,
+    },
+  });
+  console.log(`✅ Created ICP: ${icp.sector}`);
+
+  // Create 5 Prospects in different statuses
+  const prospects = await Promise.all([
+    prisma.prospect.create({
+      data: {
+        businessId: business.id,
+        icpId: icp.id,
+        email: 'dr.garcia@dentalcare-madrid.es',
+        firstName: 'Dr. Javier',
+        lastName: 'García',
+        companyName: 'Dental Care Madrid',
+        companyWebsite: 'https://dentalcare-madrid.es',
+        role: 'Director',
+        source: 'GOOGLE_MAPS',
+        sourceUrl: 'https://maps.google.com/?q=dental-care-madrid',
+        status: 'APPROVED',
+        intentScore: 0.75,
+        enrichmentData: { reviews: 127, rating: 4.8, phone: '+34 912 345 678' },
+        emailVerified: true,
+        approvedAt: new Date('2024-01-10'),
+      },
+    }),
+    prisma.prospect.create({
+      data: {
+        businessId: business.id,
+        icpId: icp.id,
+        email: 'maria@sonrisaperfecta.es',
+        firstName: 'María',
+        lastName: 'López',
+        companyName: 'Sonrisa Perfecta',
+        companyWebsite: 'https://sonrisaperfecta.es',
+        role: 'Gerente',
+        source: 'APOLLO',
+        sourceUrl: 'https://apollo.io/sonrisa-perfecta',
+        status: 'FOUND',
+        intentScore: 0.62,
+        enrichmentData: { employees: 15, funding: 'Series A', technologies: ['HubSpot'] },
+        emailVerified: false,
+      },
+    }),
+    prisma.prospect.create({
+      data: {
+        businessId: business.id,
+        icpId: icp.id,
+        email: 'antonio@implantespremium.com',
+        firstName: 'Antonio',
+        lastName: 'Martínez',
+        companyName: 'Implantes Premium',
+        companyWebsite: 'https://implantespremium.com',
+        role: 'Autónomo',
+        source: 'HUNTER',
+        sourceUrl: 'https://hunter.io/domain/implantespremium.com',
+        status: 'VALIDATED',
+        intentScore: 0.58,
+        enrichmentData: { seniority: 'Owner', department: 'Executive' },
+        emailVerified: true,
+      },
+    }),
+    prisma.prospect.create({
+      data: {
+        businessId: business.id,
+        icpId: icp.id,
+        email: 'laura@sonrisaslindas.es',
+        firstName: 'Laura',
+        lastName: 'Fernández',
+        companyName: 'Sonrisas Lindas',
+        companyWebsite: 'https://sonrisaslindas.es',
+        role: 'Directora',
+        source: 'DIRECTORY',
+        sourceUrl: 'https://coam.es/clinicas-dentales/',
+        status: 'ENROLLED',
+        intentScore: 0.81,
+        enrichmentData: { yearsInBusiness: 8, specialties: ['Ortodoncia', 'Estética'] },
+        emailVerified: true,
+        approvedAt: new Date('2024-01-08'),
+        enrolledAt: new Date('2024-01-09'),
+      },
+    }),
+    prisma.prospect.create({
+      data: {
+        businessId: business.id,
+        icpId: icp.id,
+        email: 'carlos@dentalfresh.es',
+        firstName: 'Carlos',
+        lastName: 'Ruiz',
+        companyName: 'Dental Fresh',
+        companyWebsite: 'https://dentalfresh.es',
+        role: 'Gerente',
+        source: 'MANUAL',
+        sourceUrl: 'https://linkedin.com/in/carlosruiz',
+        status: 'REPLIED',
+        intentScore: 0.89,
+        enrichmentData: { linkedinUrl: 'https://linkedin.com/in/carlosruiz', mutualConnections: 3 },
+        emailVerified: true,
+        approvedAt: new Date('2024-01-05'),
+        enrolledAt: new Date('2024-01-06'),
+      },
+    }),
+  ]);
+  console.log(`✅ Created ${prospects.length} prospects in various statuses`);
+
+  // Create 3 Cold Emails for the enrolled prospect
+  const coldEmails = await Promise.all([
+    prisma.coldEmail.create({
+      data: {
+        prospectId: prospects[3].id,
+        stepNumber: 1,
+        subject: 'Potenciar la captación de pacientes en Madrid',
+        bodyHtml: '<p>Hola Laura,</p><p>Noté que Sonrisas Lindas tiene excelentes reseñas (4.8⭐)...</p><p>¿Le interesaría ver cómo aumentamos las consultas en un 35%?</p><p>Saludos,<br>Equipo GenMail</p>',
+        bodyText: 'Hola Laura, Noté que Sonrisas Lindas tiene excelentes reseñas. ¿Le interesaría ver cómo aumentamos las consultas en un 35%? Saludos, Equipo GenMail',
+        status: 'SENT',
+        sentAt: new Date('2024-01-09T10:00:00'),
+      },
+    }),
+    prisma.coldEmail.create({
+      data: {
+        prospectId: prospects[3].id,
+        stepNumber: 2,
+        subject: 'Re: Caso de éxito con clínica similar en Barcelona',
+        bodyHtml: '<p>Hola Laura,</p><p>Vi que abrió una segunda ubicación. Felicidades...</p><p>¿Podemos agendar 15 min para mostrarle cómo DentalPro escaló?</p><p>Saludos,<br>Equipo GenMail</p>',
+        bodyText: 'Hola Laura, Vi que abrió una segunda ubicación. ¿Podemos agendar 15 min? Saludos, Equipo GenMail',
+        status: 'OPENED',
+        sentAt: new Date('2024-01-11T09:30:00'),
+      },
+    }),
+    prisma.coldEmail.create({
+      data: {
+        prospectId: prospects[4].id,
+        stepNumber: 1,
+        subject: 'Conectando con clínicas innovadoras',
+        bodyHtml: '<p>Hola Carlos,</p><p>Veo que Dental Fresh está creciendo rápido en LinkedIn...</p><p>¿Tiene 10 min esta semana para ver cómo automatizamos el nurturing?</p><p>Saludos,<br>Equipo GenMail</p>',
+        bodyText: 'Hola Carlos, Veo que Dental Fresh está creciendo. ¿Tiene 10 min esta semana? Saludos, Equipo GenMail',
+        status: 'REPLIED',
+        sentAt: new Date('2024-01-07T14:00:00'),
+        openedAt: new Date('2024-01-07T14:05:00'),
+        repliedAt: new Date('2024-01-07T16:30:00'),
+      },
+    }),
+  ]);
+  console.log(`✅ Created ${coldEmails.length} cold emails`);
+
   console.log('\n🎉 Seed completed successfully!');
   console.log(`\n📊 Summary:`);
   console.log(`   - Business: ${business.name} (slug: ${business.slug})`);
@@ -339,6 +497,7 @@ Saludos,
   console.log(`   - Leads: ${leads.length} (NEW: 1, NURTURING: 1, QUALIFIED: 1, CONVERTED: 1, UNSUBSCRIBED: 1)`);
   console.log(`   - Sequence: ${sequence.name} with ${templates.length} templates`);
   console.log(`   - Knowledge Sources: ${knowledgeSources.length}`);
+  console.log(`   - Lead Hunter: 1 ICP, ${prospects.length} prospects, ${coldEmails.length} cold emails`);
 }
 
 main()

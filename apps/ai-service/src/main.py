@@ -13,6 +13,7 @@ from prompts import (
     build_evaluate_email_prompt,
     build_extract_voice_prompt,
     select_copy_framework,
+    build_generate_cold_email_prompt,
 )
 from schemas import (
     HealthResponse,
@@ -23,6 +24,8 @@ from schemas import (
     EvaluationBreakdown,
     ExtractBrandVoiceRequest,
     ExtractBrandVoiceResponse,
+    GenerateColdEmailRequest,
+    GenerateColdEmailResponse,
 )
 
 # Configure logging
@@ -277,6 +280,65 @@ async def extract_brand_voice(request: ExtractBrandVoiceRequest) -> ExtractBrand
     except Exception as e:
         logger.error("brand_voice_extraction_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Brand voice extraction failed: {str(e)}")
+
+
+@app.post("/generate-cold-email", response_model=GenerateColdEmailResponse)
+async def generate_cold_email(request: GenerateColdEmailRequest) -> GenerateColdEmailResponse:
+    """Generate a personalized cold email for a prospect.
+    
+    This endpoint:
+    1. Selects tone based on step_number (1=soft intro, 2=value, 3=direct CTA)
+    2. Builds a prompt using real prospect data and ICP
+    3. Generates email that sounds human and individual
+    4. Respects prohibited_claims and brand_voice
+    """
+    if not llm_provider:
+        raise HTTPException(status_code=503, detail="LLM provider not initialized")
+    
+    logger.info(
+        "generating_cold_email",
+        business_id=request.business_id,
+        prospect_email=request.prospect.email,
+        step=request.step_number,
+    )
+    
+    # Build prompt
+    messages = build_generate_cold_email_prompt(
+        business_id=request.business_id,
+        brand_voice=request.brand_voice,
+        prospect=request.prospect.model_dump(),
+        icp=request.icp.model_dump(),
+        step_number=request.step_number,
+        constraints=request.constraints.model_dump(),
+    )
+    
+    try:
+        # Call LLM
+        response_data = await llm_provider.generate_json(
+            messages=messages,
+            temperature=0.6,  # Slightly lower for cold emails
+            max_tokens=2500,
+        )
+        
+        logger.info(
+            "cold_email_generated",
+            business_id=request.business_id,
+            step=request.step_number,
+            quality_score=response_data.get("quality_score", 0),
+        )
+        
+        return GenerateColdEmailResponse(
+            subject=response_data.get("subject", ""),
+            body_html=response_data.get("body_html", ""),
+            body_text=response_data.get("body_text", ""),
+            personalization_hooks=response_data.get("personalization_hooks", []),
+            copy_framework_used=response_data.get("copy_framework_used", "AIDA"),
+            quality_score=response_data.get("quality_score", 0.5),
+        )
+        
+    except Exception as e:
+        logger.error("cold_email_generation_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Cold email generation failed: {str(e)}")
 
 
 if __name__ == "__main__":

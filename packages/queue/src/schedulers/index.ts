@@ -12,3 +12,7 @@ export {
   registerLearningScheduler,
   removeLearningScheduler,
 } from "./learning.scheduler.js";
+
+export {
+  registerSignalsScheduler,
+} from "./signals.scheduler.js";

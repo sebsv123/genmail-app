@@ -1,9 +1,10 @@
-import { registerSequenceScheduler, registerIngestionScheduler, closeRedisConnection } from "@genmail/queue";
+import { registerSequenceScheduler, registerIngestionScheduler, registerSignalsScheduler, closeRedisConnection } from "@genmail/queue";
 import { sequenceWorker } from "./workers/sequence.worker.js";
 import { emailWorker } from "./workers/email.worker.js";
 import { huntWorker } from "./workers/hunt.worker.js";
 import { ingestionWorker } from "./workers/ingestion.worker.js";
 import { abTestWorker } from "./workers/ab-test.worker.js";
+import { createSignalsWorker } from "./workers/signals.worker.js";
 
 const VERSION = "0.1.0";
 
@@ -26,6 +27,9 @@ console.log("✓ Ingestion worker started (concurrency: 2)");
 console.log("✓ Learning worker started (concurrency: 1)");
 console.log("✓ AB Test worker started (concurrency: 1)");
 
+const signalsWorker = createSignalsWorker();
+console.log("✓ Signals worker started (concurrency: 3)");
+
 // Register schedulers
 registerSequenceScheduler().then(() => {
   console.log("✓ Sequence scheduler registered (every 5 minutes)");
@@ -45,6 +49,12 @@ registerLearningScheduler().then(() => {
   console.error("✗ Failed to register learning scheduler:", err);
 });
 
+registerSignalsScheduler().then(() => {
+  console.log("✓ Signals scheduler registered (collect trends every 6 hours)");
+}).catch((err) => {
+  console.error("✗ Failed to register signals scheduler:", err);
+});
+
 // Graceful shutdown
 async function gracefulShutdown(signal: string) {
   console.log(`\n[Main] Received ${signal}, starting graceful shutdown...`);
@@ -57,6 +67,7 @@ async function gracefulShutdown(signal: string) {
     ingestionWorker.close(),
     learningWorker.close(),
     abTestWorker.close(),
+    signalsWorker.close(),
   ]);
   console.log("✓ All workers closed");
 

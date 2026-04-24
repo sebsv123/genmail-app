@@ -54,3 +54,14 @@ export {
   addDecideVariantJob,
   addUpdateVariantStatsJob,
 } from "./ab-test.queue.js";
+
+export {
+  signalsQueue,
+  SIGNALS_QUEUE,
+  type CollectSectorTrendsJobData,
+  type EnrichProspectSignalsJobData,
+  type ProcessExternalSignalJobData,
+  addCollectSectorTrendsJob,
+  addEnrichProspectSignalsJob,
+  addProcessExternalSignalJob,
+} from "./signals.queue.js";

@@ -78,6 +78,7 @@ def build_generate_email_prompt(
     relevant_sources: list[dict],
     constraints: dict,
     copy_framework: CopyFramework,
+    sector_context: dict | None = None,
 ) -> list[dict[str, str]]:
     """Build the prompt messages for email generation.
     
@@ -146,6 +147,29 @@ REGLAS DE ORO:
 6. Longitud óptima: Entre 80-150 palabras para el body. Cada oración debe ganar su lugar
 7. Transiciones suaves: Cada párrafo debe fluer lógicamente al siguiente
 
+INSTRUCCIÓN DE OPTIMIZACIÓN:
+Si recibes optimization_hints con confidenceLevel=high, úsalos como guía principal para estructurar el email. 
+Si confidenceLevel=medium, úsalos como referencia pero no como regla estricta. 
+Si no hay hints o son low, usa tu mejor criterio.
+
+INSTRUCCIÓN DE CONTEXTO SECTORIAL:
+Si recibes sector_context, úsalo como referencia de lo que funciona en este sector:
+- Prioriza los power_words del sector en subject y CTA
+- NUNCA uses palabras de la lista prohibited
+- Los reference_templates son ejemplos de calidad, no los copies, úsalos solo para calibrar el tono
+- Si el benchmark indica emails cortos para este sector, respétalo
+- Adapta el tono al sector: formal para legal/salud, dinámico para ecommerce/saas
+
+{prohibited_text}
+
+INSTRUCCIÓN CRÍTICA SOBRE FUENTES DE CONOCIMIENTO:
+- Si los FUENTES DE CONOCIMIENTO RELEVANTES son pertinentes para el OBJETIVO DE ESTE PASO, úsalos como gancho de actualidad en el email
+- Cita la fuente naturalmente: "Vi que en [sector] están pasando X...", "Recientemente leí que...", "Según [fuente]..."
+- Si los sources NO son pertinentes al goal del email, IGNÓRALOS COMPLETAMENTE
+- NUNCA fuerces un contexto que no encaja con el mensaje que quieres transmitir
+- Prioriza siempre la voz de marca y el perfil del lead sobre los sources genéricos
+
+"""
 {prohibited_text}"""
 
     user_message = f"""Genera un email para este lead:
@@ -177,7 +201,12 @@ Responde en formato JSON con esta estructura exacta:
   "body_text": "Versión texto plano del email",
   "copy_framework_used": "{copy_framework}",
   "rationale": "Explicación de por qué funcionará este email",
-  "used_sources": ["nombres de fuentes utilizadas"],
+  "used_sources": [
+    {{
+      "content_preview": "Primeros 100 chars del source usado",
+      "relevance_reason": "Por qué este source fue relevante para el email"
+    }}
+  ],
   "quality_score": 0.85
 }}"""
 

@@ -1,0 +1,30 @@
+{
+  "name": "@genmail/worker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@genmail/db": "workspace:*",
+    "@genmail/email-engine": "workspace:*",
+    "@genmail/lead-hunter": "workspace:*",
+    "@genmail/queue": "workspace:*",
+    "axios": "^1.6.0",
+    "bullmq": "^5.0.0",
+    "cheerio": "^1.0.0-rc.12",
+    "fast-xml-parser": "^4.3.0",
+    "ioredis": "^5.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -16,8 +16,70 @@ enum UserRole {
 
 enum UserPlan {
   FREE
+  STARTER
   PRO
   AGENCY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  INCOMPLETE
+}
+
+enum PatternType {
+  SUBJECT_LINE
+  COPY_FRAMEWORK
+  EMAIL_LENGTH
+  SEND_TIME
+  HOOK_TYPE
+  CTA_TYPE
+}
+
+enum LearningEventType {
+  EMAIL_SENT
+  OPENED
+  CLICKED
+  REPLIED
+  CONVERTED
+  REJECTED_BY_HUMAN
+}
+
+enum ABTestStatus {
+  RUNNING
+  COMPLETED
+  STOPPED
+}
+
+enum ABTestType {
+  SUBJECT_LINE
+  COPY_FRAMEWORK
+  EMAIL_LENGTH
+  CTA_TYPE
+  SEND_TIME
+}
+
+enum SectorVocabularyType {
+  PREFERRED
+  PROHIBITED
+  POWER_WORDS
+  WEAK_WORDS
+}
+
+enum SectorInsightType {
+  PAIN_POINT
+  OBJECTION
+  TRIGGER
+  BUYING_SIGNAL
+  TRUST_FACTOR
+}
+
+enum SequenceMode {
+  EVERGREEN
+  NURTURING_INFINITE
+  COLD_OUTREACH
 }
 
 enum LeadStage {
@@ -103,7 +165,6 @@ enum AnalyticsEventType {
 model Business {
   id                String   @id @default(uuid())
   name              String
-  slug              String   @unique
   sector            String
   brandVoice        String?  @db.Text
   prohibitedClaims  String[]
@@ -117,8 +178,14 @@ model Business {
   knowledgeSources  KnowledgeSource[]
   icps              ICP[]
   prospects         Prospect[]
+  subscription      Subscription?
+  usageRecords      UsageRecord[]
+  embeddingChunks   EmbeddingChunk[]
+  performancePatterns PerformancePattern[]
+  learningEvents    LearningEvent[]
+  notifications     Notification[]
 
-  @@index([slug])
+  @@index([name])
 }
 
 model User {
@@ -138,6 +205,7 @@ model User {
   business          Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
   accounts          Account[]
   sessions          Session[]
+  notifications     Notification[]
 
   @@index([businessId])
   @@index([email])
@@ -203,6 +271,7 @@ model Lead {
   generatedEmails GeneratedEmail[]
   analytics     AnalyticsEvent[]
   memory        LeadMemory?
+  embedding     LeadEmbedding?
 
   @@index([businessId, stage])
   @@index([businessId])
@@ -311,6 +380,18 @@ model LeadMemory {
   lastEngagement  DateTime?
   updatedAt       DateTime  @updatedAt
 
+  // Learning fields
+  bestSendTime        String?
+  bestFramework       String?
+  bestHookType        String?
+  avgResponseDelay    Float?
+  totalEmailsReceived Int       @default(0)
+  totalOpened         Int       @default(0)
+  totalClicked        Int       @default(0)
+  totalReplied        Int       @default(0)
+  personalOpenRate    Float?
+  personalClickRate   Float?
+
   // Relations
   leadId          String    @unique
   lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
@@ -381,6 +462,45 @@ model ICP {
 
 // ==================== LEAD HUNTER: Prospect ====================
 
+model Subscription {
+  id                 String             @id @default(uuid())
+  businessId         String             @unique
+  stripeCustomerId   String             @unique
+  stripeSubscriptionId String?          @unique
+  stripePriceId      String?
+  plan               UserPlan
+  status             SubscriptionStatus
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  trialEndsAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([stripeCustomerId])
+  @@index([status])
+}
+
+model UsageRecord {
+  id          String   @id @default(uuid())
+  businessId  String
+  month       String   // "2026-04"
+  emailsSent  Int      @default(0)
+  leadsHunted Int      @default(0)
+  activeLeads Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, month])
+  @@index([businessId])
+  @@index([month])
+}
+
 model Prospect {
   id                String          @id @default(uuid())
   email             String
@@ -445,4 +565,209 @@ model ColdEmail {
   prospect    Prospect        @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@index([prospectId])
+}
+
+// ==================== RAG: Embeddings ====================
+
+model EmbeddingChunk {
+  id          String   @id @default(uuid())
+  businessId  String
+  sourceId    String
+  content     String   @db.Text
+  contentHash String
+  embedding   Unsupported("vector(1024)")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  // Relations
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@unique([businessId, contentHash])
+}
+
+model LeadEmbedding {
+  id             String   @id @default(uuid())
+  leadId         String   @unique
+  profileSummary String   @db.Text
+  embedding      Unsupported("vector(1024)")
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+}
+
+// ==================== Learning Models ====================
+
+model PerformancePattern {
+  id              String      @id @default(uuid())
+  businessId      String
+  patternType     PatternType
+  patternValue    String
+  sector          String?
+  sampleSize      Int         @default(0)
+  openRate        Float       @default(0)
+  clickRate       Float       @default(0)
+  replyRate       Float       @default(0)
+  conversionRate  Float       @default(0)
+  confidenceScore Float       @default(0)
+  lastUpdated     DateTime    @updatedAt
+  createdAt       DateTime    @default(now())
+
+  // Relations
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, patternType, patternValue])
+  @@index([businessId])
+  @@index([businessId, patternType])
+}
+
+model LearningEvent {
+  id              String            @id @default(uuid())
+  businessId      String
+  generatedEmailId String?
+  eventType       LearningEventType
+  signals         Json              @default("{}")
+  processedAt     DateTime?
+  createdAt       DateTime          @default(now())
+
+  // Relations
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  email    GeneratedEmail? @relation(fields: [generatedEmailId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([businessId, eventType])
+  @@index([generatedEmailId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  businessId  String
+  userId      String?
+  type        String
+  title       String
+  body        String
+  read        Boolean   @default(false)
+  actionUrl   String?
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, read])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model SectorBenchmark {
+  id              String   @id @default(uuid())
+  sector          String
+  avgOpenRate     Float
+  avgClickRate    Float
+  avgReplyRate    Float
+  bestDayOfWeek   String
+  bestHourRange   String
+  avgEmailLength  String
+  bestFrameworks  String[]
+  source          String
+  updatedAt       DateTime @updatedAt
+
+  @@unique([sector])
+  @@index([sector])
+}
+
+model SectorVocabulary {
+  id       String               @id @default(uuid())
+  sector   String
+  type     SectorVocabularyType
+  words    String[]
+  reason   String
+  updatedAt DateTime            @updatedAt
+
+  @@index([sector, type])
+}
+
+model SectorTemplate {
+  id              String       @id @default(uuid())
+  sector          String
+  name            String
+  sequenceMode    SequenceMode
+  stepNumber      Int
+  goal            String
+  subject         String
+  bodyText        String
+  copyFramework   String
+  qualityScore    Float
+  usageCount      Int          @default(0)
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+
+  @@index([sector, sequenceMode])
+  @@index([qualityScore])
+}
+
+model SectorInsight {
+  id          String            @id @default(uuid())
+  sector      String
+  insightType SectorInsightType
+  title       String
+  description String
+  examples    String[]
+  weight      Float
+  createdAt   DateTime          @default(now())
+
+  @@index([sector, insightType])
+}
+
+model ABTest {
+  id                    String       @id @default(uuid())
+  businessId            String
+  sequenceId            String?
+  name                  String
+  status                ABTestStatus @default(RUNNING)
+  testType              ABTestType
+  startedAt             DateTime     @default(now())
+  completedAt           DateTime?
+  winnerVariantId       String?
+  minSampleSize         Int          @default(50)
+  confidenceThreshold   Float        @default(0.95)
+  createdAt             DateTime     @default(now())
+
+  // Relations
+  business  Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sequence  Sequence?   @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+  variants  ABVariant[]
+
+  @@index([businessId, status])
+  @@index([sequenceId])
+}
+
+model ABVariant {
+  id             String   @id @default(uuid())
+  testId         String
+  name           String
+  subject        String
+  bodyHtml       String
+  bodyText       String
+  copyFramework  String
+  hypothesis     String
+  sent           Int      @default(0)
+  opened         Int      @default(0)
+  clicked        Int      @default(0)
+  replied        Int      @default(0)
+  openRate       Float    @default(0)
+  clickRate      Float    @default(0)
+  replyRate      Float    @default(0)
+  compositeScore Float    @default(0)
+  createdAt      DateTime @default(now())
+
+  // Relations
+  test           ABTest           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  generatedEmail GeneratedEmail[]
+
+  @@index([testId])
 }

@@ -31,6 +31,29 @@ services:
       timeout: 5s
       retries: 5
 
+  ai-service:
+    build:
+      context: ../apps/ai-service
+      dockerfile: Dockerfile
+    container_name: genmail-ai
+    restart: always
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      EMBEDDING_MODE: local
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   listmonk:
     image: listmonk/listmonk:latest
     container_name: genmail-listmonk
@@ -51,6 +74,28 @@ services:
         condition: service_healthy
     volumes:
       - listmonk_data:/listmonk
+
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    container_name: genmail-worker
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/genmail
+      - REDIS_URL=redis://redis:6379/0
+      - AI_SERVICE_URL=http://ai-service:8000
+      - LISTMONK_BASE_URL=http://listmonk:9000
+      - LISTMONK_USERNAME=admin
+      - LISTMONK_PASSWORD=admin
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

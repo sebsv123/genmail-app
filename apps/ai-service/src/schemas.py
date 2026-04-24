@@ -148,3 +148,55 @@ class GenerateColdEmailResponse(BaseModel):
     personalization_hooks: list[str] = Field(..., description="Data points used for personalization")
     copy_framework_used: str = Field(..., description="Framework used (AIDA, PAS, etc.)")
     quality_score: float = Field(..., ge=0, le=1, description="Quality score 0-1")
+
+
+# ============== RAG: EMBEDDINGS ==============
+
+class ChunkResponse(BaseModel):
+    index: int = Field(..., description="Chunk index")
+    content: str = Field(..., description="Chunk content")
+    embedding: list[float] = Field(..., description="Embedding vector (1536 dims)")
+    metadata: dict = Field(default_factory=dict, description="Additional metadata")
+
+
+class EmbedSourceRequest(BaseModel):
+    business_id: str = Field(..., description="Business/tenant ID")
+    source_id: str = Field(..., description="Knowledge source ID")
+    content: str = Field(..., description="Content to embed")
+    source_type: str = Field(..., description="Type of source (RSS, URL, DOCUMENT)")
+    metadata: dict | None = Field(default=None, description="Additional metadata")
+
+
+class EmbedSourceResponse(BaseModel):
+    business_id: str = Field(..., description="Business/tenant ID")
+    source_id: str = Field(..., description="Knowledge source ID")
+    chunks: list[ChunkResponse] = Field(..., description="Chunks with embeddings")
+    total_chunks: int = Field(..., description="Total number of chunks")
+
+
+class EmbedLeadRequest(BaseModel):
+    lead_id: str = Field(..., description="Lead ID")
+    email: str = Field(..., description="Lead's email address")
+    name: str | None = Field(None, description="Lead's name")
+    stage: str | None = Field(None, description="Lead stage")
+    intent_score: float | None = Field(None, description="Intent score 0-100")
+    context_data: dict = Field(default_factory=dict, description="Additional lead context")
+
+
+class EmbedLeadResponse(BaseModel):
+    lead_id: str = Field(..., description="Lead ID")
+    profile_summary: str = Field(..., description="Generated profile summary")
+    embedding: list[float] = Field(..., description="Embedding vector (1536 dims)")
+
+
+class SearchContextRequest(BaseModel):
+    business_id: str = Field(..., description="Business/tenant ID")
+    query: str = Field(..., description="Search query text")
+    limit: int = Field(default=5, ge=1, le=50, description="Number of results to return")
+
+
+class SearchContextResponse(BaseModel):
+    business_id: str = Field(..., description="Business/tenant ID")
+    query: str = Field(..., description="Original query")
+    query_embedding: list[float] = Field(..., description="Query embedding vector")
+    limit: int = Field(..., description="Requested limit")

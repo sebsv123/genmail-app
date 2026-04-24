@@ -27,22 +27,22 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 RUN npm install -g pnpm@9
 
-# Copy package manifests for install caching
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+# Copy package manifests + .npmrc for install caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
 COPY apps/worker/package.json ./apps/worker/
 COPY packages/db/package.json ./packages/db/
 COPY packages/queue/package.json ./packages/queue/
 COPY packages/email-engine/package.json ./packages/email-engine/
 COPY packages/lead-hunter/package.json ./packages/lead-hunter/
 
-# Install all deps (including local package node_modules with @prisma/client)
-RUN pnpm install --frozen-lockfile
+# Install all deps with shamefully-hoist (.npmrc) so prisma binary is in node_modules/.bin
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Generate Prisma client using local pnpm-installed binary
-RUN pnpm --filter @genmail/db exec prisma generate
+# Generate Prisma client using hoisted binary
+RUN ./node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build the worker
 RUN pnpm turbo run build --filter=worker

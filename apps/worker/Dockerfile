@@ -23,17 +23,26 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
-# Install pnpm + openssl (required by Prisma on Alpine)
-RUN apk add --no-cache openssl
+# Install system deps + pnpm
+RUN apk add --no-cache libc6-compat openssl
 RUN npm install -g pnpm@9
 
-# Copy all files
-COPY --from=deps /app/node_modules ./node_modules
+# Copy package manifests for install caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/db/package.json ./packages/db/
+COPY packages/queue/package.json ./packages/queue/
+COPY packages/email-engine/package.json ./packages/email-engine/
+COPY packages/lead-hunter/package.json ./packages/lead-hunter/
+
+# Install all deps (including local package node_modules with @prisma/client)
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
 COPY . .
 
-# Generate Prisma client (skip auto-install, use global binary)
-ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=true
-RUN npm install -g prisma@5.22.0 @prisma/client@5.22.0 && prisma generate --schema=packages/db/prisma/schema.prisma
+# Generate Prisma client using local pnpm-installed binary
+RUN pnpm --filter @genmail/db exec prisma generate
 
 # Build the worker
 RUN pnpm turbo run build --filter=worker

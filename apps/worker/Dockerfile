@@ -20,7 +20,7 @@ RUN pnpm install --no-frozen-lockfile
 RUN node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build the worker
-RUN pnpm turbo run build --filter=worker
+RUN pnpm turbo run build --filter=@genmail/worker
 
 # ==================== Production stage ====================
 FROM base AS runner
@@ -28,8 +28,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN apk add --no-cache openssl
-RUN npm install -g pnpm@9
+RUN apk add --no-cache openssl netcat-openbsd
+RUN npm install -g pnpm@9 tsx
 
 # Copy built artifacts and node_modules
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
@@ -38,11 +38,11 @@ COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/.npmrc ./
 
-# Non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 worker
-USER worker
+# Copy entrypoint script (strip CRLF in case it was created on Windows)
+COPY apps/worker/entrypoint.sh /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 3001
 
-CMD ["node", "apps/worker/dist/index.js"]
+# Run entrypoint as root so it can do migrate/seed (Postgres-only operations)
+ENTRYPOINT ["/entrypoint.sh"]

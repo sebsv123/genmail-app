@@ -30,9 +30,8 @@ RUN npm install -g pnpm@9
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Install local package deps and generate Prisma client
-RUN pnpm install --no-frozen-lockfile
-RUN cd packages/db && pnpm exec prisma generate
+# Generate Prisma client using root node_modules binary
+RUN node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build the worker
 RUN pnpm turbo run build --filter=worker

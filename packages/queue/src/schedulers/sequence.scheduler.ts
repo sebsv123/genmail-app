@@ -1,4 +1,3 @@
-import { QueueScheduler } from "bullmq";
 import { sequenceQueue } from "../queues/sequence.queue.js";
 
 export async function registerSequenceScheduler(): Promise<void> {

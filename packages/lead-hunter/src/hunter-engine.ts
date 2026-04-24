@@ -127,7 +127,7 @@ export class HunterEngine {
   async validateEmails(emails: string[]): Promise<{
     valid: string[];
     invalid: string[];
-    details: Awaited<ReturnType<typeof this.validator.validateMany>>;
+    details: Awaited<ReturnType<EmailValidator["validateMany"]>>;
   }> {
     const validations = await this.validator.validateMany(emails);
     

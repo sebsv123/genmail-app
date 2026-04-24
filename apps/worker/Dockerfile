@@ -19,8 +19,9 @@ RUN pnpm install --no-frozen-lockfile
 # Generate Prisma client using hoisted binary from root node_modules
 RUN node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
 
-# Build the worker
-RUN pnpm turbo run build --filter=@genmail/worker
+# Build internal packages only (worker runs via tsx, no build needed)
+# This compiles @genmail/db, @genmail/queue, @genmail/email-engine, @genmail/lead-hunter, @genmail/shared
+RUN pnpm turbo run build --filter=@genmail/db --filter=@genmail/queue --filter=@genmail/email-engine --filter=@genmail/lead-hunter --filter=@genmail/shared
 
 # ==================== Production stage ====================
 FROM base AS runner
@@ -31,9 +32,10 @@ ENV NODE_ENV=production
 RUN apk add --no-cache openssl netcat-openbsd
 RUN npm install -g pnpm@9 tsx
 
-# Copy built artifacts and node_modules
-COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
+# Copy worker source (runs via tsx, no compile step) and node_modules
+COPY --from=builder /app/apps/worker/src ./apps/worker/src
 COPY --from=builder /app/apps/worker/package.json ./apps/worker/
+COPY --from=builder /app/apps/worker/tsconfig.json ./apps/worker/
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/.npmrc ./

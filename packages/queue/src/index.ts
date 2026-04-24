@@ -7,6 +7,7 @@
 export {
   getRedisConnection,
   closeRedisConnection,
+  redisConnection,
 } from "./connection.js";
 
 // Queues
@@ -18,6 +19,20 @@ export {
   removeSequenceScheduler,
   getOptimalSendTime,
 } from "./schedulers/sequence.scheduler.js";
+
+export {
+  registerIngestionScheduler,
+  removeIngestionScheduler,
+} from "./schedulers/ingestion.scheduler.js";
+
+export {
+  registerLearningScheduler,
+  removeLearningScheduler,
+} from "./schedulers/learning.scheduler.js";
+
+export {
+  registerSignalsScheduler,
+} from "./schedulers/signals.scheduler.js";
 
 // Version
 export const VERSION = "0.1.0";

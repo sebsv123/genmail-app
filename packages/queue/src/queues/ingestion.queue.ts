@@ -45,7 +45,7 @@ export async function addIngestSourceJob(sourceId: string): Promise<Job<IngestSo
       removeOnComplete: 10,
       removeOnFail: 5,
     }
-  );
+  ) as Promise<Job<IngestSourceJobData>>;
 }
 
 /**
@@ -60,7 +60,7 @@ export async function addIngestLeadJob(leadId: string): Promise<Job<IngestLeadJo
       removeOnComplete: 10,
       removeOnFail: 5,
     }
-  );
+  ) as Promise<Job<IngestLeadJobData>>;
 }
 
 /**
@@ -69,11 +69,11 @@ export async function addIngestLeadJob(leadId: string): Promise<Job<IngestLeadJo
 export async function addRefreshRSSJob(): Promise<Job<RefreshRSSJobData>> {
   return ingestionQueue.add(
     "refresh-rss",
-    {},
+    {} as RefreshRSSJobData,
     {
       jobId: "refresh-rss",
       removeOnComplete: 1,
       removeOnFail: 1,
     }
-  );
+  ) as Promise<Job<RefreshRSSJobData>>;
 }

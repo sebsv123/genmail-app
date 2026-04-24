@@ -2,31 +2,44 @@ import Redis from "ioredis";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
-let redisConnection: Redis | null = null;
+let _redisConnection: Redis | null = null;
 
 export function getRedisConnection(): Redis {
-  if (!redisConnection) {
-    redisConnection = new Redis(REDIS_URL, {
+  if (!_redisConnection) {
+    _redisConnection = new Redis(REDIS_URL, {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
     });
 
-    redisConnection.on("connect", () => {
+    _redisConnection.on("connect", () => {
       console.log("[Queue] Redis connected");
     });
 
-    redisConnection.on("error", (err) => {
+    _redisConnection.on("error", (err) => {
       console.error("[Queue] Redis error:", err);
     });
   }
 
-  return redisConnection;
+  return _redisConnection;
 }
 
 export function closeRedisConnection(): void {
-  if (redisConnection) {
-    redisConnection.disconnect();
-    redisConnection = null;
+  if (_redisConnection) {
+    _redisConnection.disconnect();
+    _redisConnection = null;
     console.log("[Queue] Redis disconnected");
   }
 }
+
+/**
+ * Compatibility export: lazy Redis connection proxy.
+ * Allows code that does `import { redisConnection } from "@genmail/queue"`
+ * to work the same as calling `getRedisConnection()`.
+ */
+export const redisConnection = new Proxy({} as Redis, {
+  get(_target, prop) {
+    const conn = getRedisConnection();
+    const value = (conn as any)[prop];
+    return typeof value === "function" ? value.bind(conn) : value;
+  },
+});

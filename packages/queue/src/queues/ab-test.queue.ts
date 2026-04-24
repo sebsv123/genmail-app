@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { redisConnection } from "../config/redis.js";
+import { redisConnection } from "../connection.js";
 
 export const AB_TEST_QUEUE = "ab-test";
 

@@ -4,7 +4,7 @@
  */
 
 import { Queue, Job } from "bullmq";
-import { Redis } from "ioredis";
+import { getRedisConnection } from "../connection.js";
 
 export const SIGNALS_QUEUE = "signals";
 
@@ -28,14 +28,6 @@ export type SignalsJobData =
   | EnrichProspectSignalsJobData
   | ProcessExternalSignalJobData;
 
-// Redis connection
-const getRedisConnection = () => {
-  const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
-    maxRetriesPerRequest: null,
-  });
-  return redis;
-};
-
 // Queue instance
 export const signalsQueue = new Queue<SignalsJobData>(SIGNALS_QUEUE, {
   connection: getRedisConnection(),
@@ -49,7 +41,7 @@ export const signalsQueue = new Queue<SignalsJobData>(SIGNALS_QUEUE, {
 });
 
 // Job adders
-export async function addCollectSectorTrendsJob(): Promise<Job<CollectSectorTrendsJobData>> {
+export async function addCollectSectorTrendsJob(): Promise<Job<SignalsJobData>> {
   return signalsQueue.add(
     "CollectSectorTrendsJob",
     { type: "CollectSectorTrendsJob" },
@@ -62,7 +54,7 @@ export async function addCollectSectorTrendsJob(): Promise<Job<CollectSectorTren
 
 export async function addEnrichProspectSignalsJob(
   prospectId: string
-): Promise<Job<EnrichProspectSignalsJobData>> {
+): Promise<Job<SignalsJobData>> {
   return signalsQueue.add("EnrichProspectSignalsJob", {
     type: "EnrichProspectSignalsJob",
     prospectId,
@@ -71,7 +63,7 @@ export async function addEnrichProspectSignalsJob(
 
 export async function addProcessExternalSignalJob(
   signalId: string
-): Promise<Job<ProcessExternalSignalJobData>> {
+): Promise<Job<SignalsJobData>> {
   return signalsQueue.add("ProcessExternalSignalJob", {
     type: "ProcessExternalSignalJob",
     signalId,

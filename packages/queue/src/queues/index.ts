@@ -65,3 +65,10 @@ export {
   addEnrichProspectSignalsJob,
   addProcessExternalSignalJob,
 } from "./signals.queue.js";
+
+export {
+  notificationQueue,
+  NOTIFICATION_QUEUE,
+  type SendNotificationJobData,
+  addNotificationJob,
+} from "./notification.queue.js";

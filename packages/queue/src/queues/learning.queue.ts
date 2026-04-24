@@ -41,7 +41,7 @@ export async function addProcessLearningEventJob(learningEventId: string): Promi
       removeOnComplete: 50,
       removeOnFail: 10,
     }
-  );
+  ) as Promise<Job<ProcessLearningEventJobData>>;
 }
 
 /**
@@ -56,5 +56,5 @@ export async function addUpdateBestPracticesJob(businessId: string): Promise<Job
       removeOnComplete: 5,
       removeOnFail: 5,
     }
-  );
+  ) as Promise<Job<UpdateBestPracticesJobData>>;
 }

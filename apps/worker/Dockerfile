@@ -23,14 +23,16 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
-# Install pnpm
+# Install pnpm + openssl (required by Prisma on Alpine)
+RUN apk add --no-cache openssl
 RUN npm install -g pnpm@9
 
 # Copy all files
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client (skip auto-install, use global binary)
+ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=true
 RUN npm install -g prisma@5.22.0 && prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build the worker

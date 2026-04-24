@@ -184,3 +184,5 @@ export class SourceAggregator {
 export { ApolloClient } from './apollo.js';
 export { HunterClient } from './hunter.js';
 export { GoogleMapsClient } from './google-maps.js';
+export { GoogleTrendsClient, googleTrendsClient } from './google-trends.js';
+export type { TrendData } from './google-trends.js';

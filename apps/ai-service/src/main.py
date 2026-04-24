@@ -34,6 +34,8 @@ from schemas import (
     EmbedLeadResponse,
     SearchContextRequest,
     SearchContextResponse,
+    AnalyzeTrendContextRequest,
+    AnalyzeTrendContextResponse,
 )
 
 # Configure logging
@@ -950,6 +952,53 @@ async def get_embedding_cache_stats() -> dict:
         "dimensions": provider.vector_dimensions,
         "loaded": provider._local_model is not None if provider.mode == "local" else provider._openai_client is not None,
     }
+
+
+@app.post("/analyze-trend-context")
+async def analyze_trend_context(request: AnalyzeTrendContextRequest) -> AnalyzeTrendContextResponse:
+    """Analyze sector trends and recommend email hooks."""
+    try:
+        logger.info("analyze_trend_context", sector=request.sector, trends_count=len(request.trends))
+        
+        # Calculate metrics
+        avg_score = sum(t.score for t in request.trends) / len(request.trends) if request.trends else 50
+        max_change = max((t.weekly_change for t in request.trends), default=0)
+        top_keyword = max(request.trends, key=lambda t: t.score, default=None)
+        
+        # Determine urgency
+        if avg_score > 70 and max_change > 20:
+            urgency_level = "high"
+            summary = f"🔥 Fuerte interés en {request.sector}. Las búsquedas están en máximos históricos."
+        elif avg_score > 50 or max_change > 10:
+            urgency_level = "medium"
+            summary = f"📈 Creciente interés en {request.sector}. Momento favorable para contactar."
+        else:
+            urgency_level = "low"
+            summary = f"➡️ Interés estable en {request.sector}. Enfoque en valor a largo plazo."
+        
+        # Generate hook recommendation based on top trending keyword
+        if top_keyword:
+            if "precio" in top_keyword.keyword or "oferta" in top_keyword.keyword:
+                recommended_hook = f"Muchos buscan '{top_keyword.keyword}' esta semana. ¿Necesita ayuda para comparar?"
+            elif "curso" in top_keyword.keyword or "formacion" in top_keyword.keyword:
+                recommended_hook = f"El interés por '{top_keyword.keyword}' ha crecido un {top_keyword.weekly_change:.0f}%. ¿Está actualizado?"
+            else:
+                recommended_hook = f"Notamos un {top_keyword.weekly_change:.0f}% más de interés en '{top_keyword.keyword}'. ¿Le interesa saber por qué?"
+        else:
+            recommended_hook = "Conectemos para explorar oportunidades en su sector."
+        
+        return AnalyzeTrendContextResponse(
+            summary=summary,
+            recommended_hook=recommended_hook,
+            urgency_level=urgency_level
+        )
+    except Exception as e:
+        logger.error("analyze_trend_context_failed", error=str(e))
+        return AnalyzeTrendContextResponse(
+            summary="No hay datos de tendencias disponibles",
+            recommended_hook="Conectemos para explorar oportunidades.",
+            urgency_level="low"
+        )
 
 
 if __name__ == "__main__":

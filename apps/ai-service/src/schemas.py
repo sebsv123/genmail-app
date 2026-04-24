@@ -200,3 +200,22 @@ class SearchContextResponse(BaseModel):
     query: str = Field(..., description="Original query")
     query_embedding: list[float] = Field(..., description="Query embedding vector")
     limit: int = Field(..., description="Requested limit")
+
+
+# ============== TREND ANALYSIS (FASE 18B) ==============
+
+class TrendItem(BaseModel):
+    keyword: str = Field(..., description="Trend keyword")
+    score: float = Field(..., ge=0, le=100, description="Trend score 0-100")
+    weekly_change: float = Field(..., description="Weekly change percentage")
+
+
+class AnalyzeTrendContextRequest(BaseModel):
+    sector: str = Field(..., description="Sector/industry")
+    trends: list[TrendItem] = Field(..., description="List of trend data")
+
+
+class AnalyzeTrendContextResponse(BaseModel):
+    summary: str = Field(..., description="Summary of trend context")
+    recommended_hook: str = Field(..., description="Recommended hook for emails")
+    urgency_level: Literal["high", "medium", "low"] = Field(..., description="Urgency level based on trends")

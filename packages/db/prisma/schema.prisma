@@ -76,12 +76,6 @@ enum SectorInsightType {
   TRUST_FACTOR
 }
 
-enum SequenceMode {
-  EVERGREEN
-  NURTURING_INFINITE
-  COLD_OUTREACH
-}
-
 enum LeadStage {
   NEW
   NURTURING

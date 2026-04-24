@@ -1,69 +1,44 @@
 FROM node:20-alpine AS base
 
-# Install dependencies
-FROM base AS deps
-RUN apk add --no-cache libc6-compat
+# ==================== Builder stage ====================
+FROM base AS builder
 WORKDIR /app
+
+# System deps (openssl required by Prisma, libc6-compat for Alpine)
+RUN apk add --no-cache libc6-compat openssl
 
 # Install pnpm
 RUN npm install -g pnpm@9
 
-# Copy package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY apps/worker/package.json ./apps/worker/
-COPY packages/db/package.json ./packages/db/
-COPY packages/queue/package.json ./packages/queue/
-COPY packages/email-engine/package.json ./packages/email-engine/
-COPY packages/lead-hunter/package.json ./packages/lead-hunter/
-
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Build stage
-FROM base AS builder
-WORKDIR /app
-
-# Install system deps + pnpm
-RUN apk add --no-cache libc6-compat openssl
-RUN npm install -g pnpm@9
-
-# Copy package manifests + .npmrc for install caching
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
-COPY apps/worker/package.json ./apps/worker/
-COPY packages/db/package.json ./packages/db/
-COPY packages/queue/package.json ./packages/queue/
-COPY packages/email-engine/package.json ./packages/email-engine/
-COPY packages/lead-hunter/package.json ./packages/lead-hunter/
-
-# Install all deps with shamefully-hoist (.npmrc) so prisma binary is in node_modules/.bin
-RUN pnpm install --no-frozen-lockfile
-
-# Copy source code
+# Copy EVERYTHING (simpler and more reliable than selective copies)
 COPY . .
 
-# Generate Prisma client using hoisted binary
+# Install all workspace dependencies
+RUN pnpm install --no-frozen-lockfile
+
+# Generate Prisma client (uses hoisted binary via .npmrc shamefully-hoist)
 RUN ./node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build the worker
 RUN pnpm turbo run build --filter=worker
 
-# Production stage
+# ==================== Production stage ====================
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install pnpm
+RUN apk add --no-cache openssl
 RUN npm install -g pnpm@9
 
-# Copy necessary files
+# Copy built artifacts and node_modules
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
 COPY --from=builder /app/apps/worker/package.json ./apps/worker/
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/node_modules ./node_modules
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/.npmrc ./
 
-# Create non-root user
+# Non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 worker
 USER worker

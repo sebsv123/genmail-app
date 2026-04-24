@@ -30,8 +30,8 @@ RUN npm install -g pnpm@9
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client using root node_modules binary
-RUN node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
+# Generate Prisma client
+RUN npm install -g prisma@5.22.0 && prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build the worker
 RUN pnpm turbo run build --filter=worker

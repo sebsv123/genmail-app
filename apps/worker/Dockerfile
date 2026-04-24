@@ -33,7 +33,7 @@ COPY . .
 
 # Generate Prisma client (skip auto-install, use global binary)
 ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=true
-RUN npm install -g prisma@5.22.0 && prisma generate --schema=packages/db/prisma/schema.prisma
+RUN npm install -g prisma@5.22.0 @prisma/client@5.22.0 && prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build the worker
 RUN pnpm turbo run build --filter=worker

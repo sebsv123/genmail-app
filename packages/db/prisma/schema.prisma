@@ -765,3 +765,48 @@ model ABVariant {
 
   @@index([testId])
 }
+
+// ==================== EXTERNAL SIGNALS (FASE 18) ====================
+
+enum ExternalSignalType {
+  GOOGLE_TREND_SPIKE
+  COMPANY_HIRING
+  COMPANY_GREW
+  JOB_CHANGE
+  FUNDING_ROUND
+  SECTOR_NEWS
+  COMPETITOR_MENTIONED
+  PRICE_SEARCH
+  WEBSITE_VISIT
+}
+
+model ExternalSignal {
+  id            String             @id @default(uuid())
+  signalType    ExternalSignalType
+  source        String
+  data          Json               @default("{}")
+  intentBoost   Float              @default(0)
+  detectedAt    DateTime           @default(now())
+  processedAt   DateTime?
+
+  // Optional relations (one of these should be set)
+  leadId      String?
+  prospectId  String?
+
+  @@index([leadId, detectedAt])
+  @@index([prospectId, detectedAt])
+  @@index([signalType, detectedAt])
+}
+
+model SectorTrend {
+  id            String   @id @default(uuid())
+  sector        String
+  keyword       String
+  trendScore    Float
+  weeklyChange  Float
+  region        String   @default("ES")
+  recordedAt    DateTime @default(now())
+
+  @@index([sector, recordedAt])
+  @@index([keyword, region])
+}

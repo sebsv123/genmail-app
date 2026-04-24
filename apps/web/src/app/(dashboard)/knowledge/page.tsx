@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, BookOpen, TrendingUp, AlertCircle, CheckCircle, MessageSquare, Target } from "lucide-react";
+import { Loader2, BookOpen, TrendingUp, AlertCircle, CheckCircle, MessageSquare, Target, Activity, Building, DollarSign, UserCheck, Globe } from "lucide-react";
 
 interface SectorKnowledge {
   sector: string;
@@ -156,11 +156,12 @@ export default function KnowledgePage() {
 
       {knowledge && !loading && (
         <Tabs defaultValue="benchmark" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="benchmark">Benchmarks</TabsTrigger>
             <TabsTrigger value="vocabulary">Vocabulario</TabsTrigger>
             <TabsTrigger value="insights">Insights</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="signals">Señales</TabsTrigger>
           </TabsList>
 
           {/* Benchmark Tab */}
@@ -405,8 +406,186 @@ export default function KnowledgePage() {
               ))}
             </div>
           </TabsContent>
+
+          {/* Signals Tab - FASE 18G */}
+          <TabsContent value="signals" className="space-y-6">
+            {/* Market Trends Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-green-500" />
+                  Tendencias de tu sector
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MarketTrendsPanel />
+              </CardContent>
+            </Card>
+
+            {/* Lead Signals Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-blue-500" />
+                  Señales de tus leads (últimas 72h)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LeadSignalsPanel />
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       )}
+    </div>
+  );
+}
+
+// ============== SUB-COMPONENTS FOR SIGNALS (FASE 18G) ==============
+
+function MarketTrendsPanel() {
+  const [trends, setTrends] = useState<any[]>([]);
+  const [hasSpike, setHasSpike] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/signals/trends")
+      .then((res) => res.json())
+      .then((data) => {
+        setTrends(data.trends?.slice(0, 5) || []);
+        setHasSpike(data.hasSpike);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Recopilando datos del sector...
+      </div>
+    );
+  }
+
+  if (trends.length === 0) {
+    return (
+      <p className="text-muted-foreground">
+        Recopilando datos del sector, disponible en 6h
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {hasSpike && (
+        <div className="bg-orange-100 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-orange-700">
+            <TrendingUp className="h-5 w-5" />
+            <span className="font-medium">
+              🔥 Pico de búsquedas detectado — Momento óptimo para enviar campañas
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {trends.map((t) => (
+          <div key={t.keyword} className="flex items-center justify-between py-2 border-b last:border-0">
+            <span className="font-medium">{t.keyword}</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                {t.weeklyChange > 0 ? (
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                ) : t.weeklyChange < 0 ? (
+                  <TrendingUp className="h-4 w-4 text-red-500 rotate-180" />
+                ) : (
+                  <span className="text-gray-400">→</span>
+                )}
+                <span className={t.weeklyChange > 0 ? "text-green-600" : t.weeklyChange < 0 ? "text-red-600" : "text-gray-500"}>
+                  {t.weeklyChange > 0 ? "+" : ""}{t.weeklyChange.toFixed(0)}%
+                </span>
+              </div>
+              <Progress value={t.trendScore} className="w-24" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LeadSignalsPanel() {
+  const [signals, setSignals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/signals")
+      .then((res) => res.json())
+      .then((data) => {
+        setSignals(data.signals || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const getSignalIcon = (type: string) => {
+    switch (type) {
+      case "COMPANY_GREW": return <Building className="h-4 w-4 text-blue-500" />;
+      case "JOB_CHANGE": return <UserCheck className="h-4 w-4 text-green-500" />;
+      case "FUNDING_ROUND": return <DollarSign className="h-4 w-4 text-yellow-500" />;
+      case "COMPANY_HIRING": return <Activity className="h-4 w-4 text-purple-500" />;
+      case "WEBSITE_VISIT": return <Globe className="h-4 w-4 text-gray-500" />;
+      default: return <Activity className="h-4 w-4 text-gray-400" />;
+    }
+  };
+
+  const getSignalLabel = (type: string) => {
+    switch (type) {
+      case "COMPANY_GREW": return "🏢 Empresa creció";
+      case "JOB_CHANGE": return "👔 Cambio de trabajo";
+      case "FUNDING_ROUND": return "💰 Ronda de financiación";
+      case "COMPANY_HIRING": return "📊 Están contratando";
+      case "WEBSITE_VISIT": return "🌐 Visita web";
+      default: return type;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Cargando señales...
+      </div>
+    );
+  }
+
+  if (signals.length === 0) {
+    return (
+      <p className="text-muted-foreground">
+        No hay señales recientes. Los datos aparecerán cuando tus leads generen actividad.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {signals.map((s) => (
+        <div key={s.id} className="flex items-center gap-3 py-2 border-b last:border-0 hover:bg-gray-50 rounded px-2 cursor-pointer">
+          {getSignalIcon(s.signalType)}
+          <div className="flex-1">
+            <p className="font-medium text-sm">
+              {s.lead?.name || s.prospect?.firstName || "Lead"} {s.prospect?.lastName || ""}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {getSignalLabel(s.signalType)} · {new Date(s.detectedAt).toLocaleDateString()}
+            </p>
+          </div>
+          <Badge variant={s.intentBoost > 0.3 ? "default" : "secondary"}>
+            +{(s.intentBoost * 100).toFixed(0)}%
+          </Badge>
+        </div>
+      ))}
     </div>
   );
 }

@@ -7,19 +7,17 @@ WORKDIR /app
 # System deps (openssl required by Prisma, libc6-compat for Alpine)
 RUN apk add --no-cache libc6-compat openssl
 
-# Install pnpm + prisma + @prisma/client globally
-RUN npm install -g pnpm@9 prisma@5.22.0 @prisma/client@5.22.0
+# Install pnpm globally
+RUN npm install -g pnpm@9
 
-# Copy EVERYTHING (simpler and more reliable than selective copies)
+# Copy everything
 COPY . .
 
-# Install all workspace dependencies
+# Install all workspace deps (prisma + @prisma/client now in root package.json)
 RUN pnpm install --no-frozen-lockfile
 
-# Generate Prisma client (skip auto-install, make global @prisma/client resolvable)
-ENV PRISMA_SKIP_DATAPROXY_IN_ACCELERATE=true
-ENV NODE_PATH=/usr/local/lib/node_modules
-RUN cd packages/db && prisma generate --generator=client
+# Generate Prisma client using hoisted binary from root node_modules
+RUN node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build the worker
 RUN pnpm turbo run build --filter=worker

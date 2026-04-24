@@ -188,6 +188,56 @@ async function handleSendColdEmail(data: SendColdEmailJobData) {
         })),
       };
     }
+
+    // ============== TRENDS: Analyze recent sector trends (FASE 18F) ==============
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentTrends = await db.sectorTrend.findMany({
+      where: {
+        sector,
+        recordedAt: { gte: oneDayAgo },
+        trendScore: { gt: 65 },
+      },
+      orderBy: { trendScore: 'desc' },
+      take: 5,
+    });
+
+    if (recentTrends.length > 0) {
+      try {
+        // Call AI service to analyze trends
+        const trendResponse = await fetch(`${process.env.AI_SERVICE_URL || 'http://localhost:8000'}/analyze-trend-context`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sector,
+            trends: recentTrends.map(t => ({
+              keyword: t.keyword,
+              score: t.trendScore,
+              weekly_change: t.weeklyChange,
+            })),
+          }),
+        });
+
+        if (trendResponse.ok) {
+          const trendAnalysis = await trendResponse.json();
+          
+          // Add trend context if urgency is high or medium
+          if (trendAnalysis.urgency_level === 'high' || trendAnalysis.urgency_level === 'medium') {
+            sectorContext = {
+              ...sectorContext,
+              trend_context: {
+                trend_summary: trendAnalysis.summary,
+                recommended_hook: trendAnalysis.recommended_hook,
+                urgency_level: trendAnalysis.urgency_level,
+              },
+            };
+            console.log(`[Hunt Worker] Added trend context: ${trendAnalysis.summary}`);
+          }
+        }
+      } catch (error) {
+        console.warn('[Hunt Worker] Failed to analyze trends:', error);
+        // Continue without trend context
+      }
+    }
   }
 
   // Generate cold email via AI

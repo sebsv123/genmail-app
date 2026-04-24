@@ -10,6 +10,14 @@ interface ApolloConfig {
   mockMode?: boolean;
 }
 
+// Tipos para señales externas (FASE 18C)
+export interface ExternalSignalData {
+  signalType: 'COMPANY_HIRING' | 'COMPANY_GREW' | 'JOB_CHANGE' | 'FUNDING_ROUND';
+  source: 'apollo';
+  intentBoost: number;
+  data: Record<string, any>;
+}
+
 interface ApolloPerson {
   id: string;
   first_name?: string;
@@ -131,5 +139,151 @@ export class ApolloClient {
     }
     
     return prospects;
+  }
+
+  // ==================== EXTERNAL SIGNALS (FASE 18C) ====================
+
+  /**
+   * Obtiene señales de la empresa (crecimiento, hiring, funding)
+   * SIEMPRE devuelve array, nunca lanza error
+   */
+  async getCompanySignals(domain: string): Promise<ExternalSignalData[]> {
+    if (this.mockMode) {
+      return []; // En mock mode no hay señales reales
+    }
+
+    const signals: ExternalSignalData[] = [];
+
+    try {
+      // Enriquecer organización por dominio
+      const response = await fetch(`${this.baseUrl}/organizations/enrich`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': this.apiKey,
+        },
+        body: JSON.stringify({ domain }),
+      });
+
+      if (!response.ok) {
+        console.warn(`Apollo enrich failed for ${domain}: ${response.status}`);
+        return [];
+      }
+
+      const data = await response.json();
+      const org = data.organization;
+
+      if (!org) return [];
+
+      // Detectar crecimiento (headcount creció >20% en 6 meses)
+      if (org.employee_count && org.employee_count_6_months_ago) {
+        const growth = (org.employee_count - org.employee_count_6_months_ago) / org.employee_count_6_months_ago;
+        if (growth > 0.20) {
+          signals.push({
+            signalType: 'COMPANY_GREW',
+            source: 'apollo',
+            intentBoost: 0.25,
+            data: {
+              growth_percentage: Math.round(growth * 100),
+              headcount: org.employee_count,
+              previous_headcount: org.employee_count_6_months_ago
+            }
+          });
+        }
+      }
+
+      // Detectar hiring activo
+      if (org.job_postings_count && org.job_postings_count > 0) {
+        signals.push({
+          signalType: 'COMPANY_HIRING',
+          source: 'apollo',
+          intentBoost: 0.20,
+          data: {
+            open_positions: org.job_postings_count,
+            hiring_departments: org.hiring_departments || []
+          }
+        });
+      }
+
+      // Detectar funding reciente
+      if (org.recently_funded && org.latest_funding_date) {
+        const fundingDate = new Date(org.latest_funding_date);
+        const monthsSinceFunding = (Date.now() - fundingDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        
+        if (monthsSinceFunding <= 12) {
+          signals.push({
+            signalType: 'FUNDING_ROUND',
+            source: 'apollo',
+            intentBoost: 0.30,
+            data: {
+              amount: org.latest_funding_amount,
+              round: org.latest_funding_round,
+              date: org.latest_funding_date
+            }
+          });
+        }
+      }
+
+    } catch (error) {
+      console.warn(`Error getting company signals for ${domain}:`, error);
+    }
+
+    return signals;
+  }
+
+  /**
+   * Obtiene señales del contacto (cambio de trabajo reciente)
+   * SIEMPRE devuelve array, nunca lanza error
+   */
+  async getContactSignals(email: string): Promise<ExternalSignalData[]> {
+    if (this.mockMode) {
+      return [];
+    }
+
+    const signals: ExternalSignalData[] = [];
+
+    try {
+      const response = await fetch(`${this.baseUrl}/people/match`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': this.apiKey,
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        console.warn(`Apollo people match failed for ${email}: ${response.status}`);
+        return [];
+      }
+
+      const data = await response.json();
+      const person = data.person;
+
+      if (!person || !person.started_at) return [];
+
+      const startedAt = new Date(person.started_at);
+      const monthsInRole = (Date.now() - startedAt.getTime()) / (1000 * 60 * 60 * 24 * 30);
+
+      // Cambio de trabajo en últimos 3 meses
+      if (monthsInRole <= 3) {
+        signals.push({
+          signalType: 'JOB_CHANGE',
+          source: 'apollo',
+          intentBoost: 0.35,
+          data: {
+            new_role: person.title,
+            new_company: person.organization?.name,
+            started_at: person.started_at,
+            months_in_role: Math.round(monthsInRole)
+          }
+        });
+      }
+
+    } catch (error) {
+      console.warn(`Error getting contact signals for ${email}:`, error);
+    }
+
+    return signals;
   }
 }

@@ -13,9 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY src/ ./src/
-COPY prompts/ ./prompts/
 
 # Expose port
+ENV PYTHONPATH=/app/src
+
 EXPOSE 8000
 
 # Health check (increased start-period for BGE-M3 model loading ~15s)

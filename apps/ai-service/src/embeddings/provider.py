@@ -49,8 +49,11 @@ class EmbeddingProvider:
                 # BGE-M3: multilingual, Spanish native, 1024 dims
                 self._local_model = SentenceTransformer("BAAI/bge-m3")
                 # Try to use float16 for memory optimization (FASE 17D)
+                # Only on CUDA: CPU does not implement LayerNorm in half precision
                 try:
-                    self._local_model = self._local_model.half()
+                    import torch
+                    if torch.cuda.is_available():
+                        self._local_model = self._local_model.half()
                 except Exception:
                     pass  # Fallback to float32 if not supported
                 print(f"[EmbeddingProvider] BGE-M3 loaded. Dimensions: {self._dimensions}")

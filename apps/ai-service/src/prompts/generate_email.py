@@ -168,9 +168,7 @@ INSTRUCCIÓN CRÍTICA SOBRE FUENTES DE CONOCIMIENTO:
 - Si los sources NO son pertinentes al goal del email, IGNÓRALOS COMPLETAMENTE
 - NUNCA fuerces un contexto que no encaja con el mensaje que quieres transmitir
 - Prioriza siempre la voz de marca y el perfil del lead sobre los sources genéricos
-
 """
-{prohibited_text}"""
 
     user_message = f"""Genera un email para este lead:
 

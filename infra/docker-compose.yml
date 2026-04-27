@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -22,7 +20,7 @@ services:
     image: redis:7-alpine
     container_name: genmail-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -37,17 +35,31 @@ services:
       dockerfile: Dockerfile
     container_name: genmail-ai
     restart: always
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    env_file:
+      - ../.env
     environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # API keys (OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY) come from env_file.
+      # Below are defaults overridable via .env.
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-nano}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      XAI_MODEL: ${XAI_MODEL:-grok-2-latest}
       LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       EMBEDDING_MODE: local
+    mem_limit: 6g
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 6G
         reservations:
-          memory: 1G
+          memory: 2G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -80,20 +92,20 @@ services:
       context: ..
       dockerfile: apps/worker/Dockerfile
     container_name: genmail-worker
+    env_file:
+      - ../.env
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/genmail
-      - REDIS_URL=redis://redis:6379/0
-      - AI_SERVICE_URL=http://ai-service:8000
-      - LISTMONK_BASE_URL=http://listmonk:9000
-      - LISTMONK_USERNAME=admin
-      - LISTMONK_PASSWORD=admin
-      - NODE_ENV=production
+      # Override URLs to use Docker service names (override .env which uses localhost)
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/genmail
+      REDIS_URL: redis://redis:6379/0
+      AI_SERVICE_URL: http://ai-service:8000
+      LISTMONK_BASE_URL: http://listmonk:9000
+      NODE_ENV: production
+      SEED_SECTORS: "true"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      ai-service:
         condition: service_healthy
     restart: unless-stopped
 
@@ -101,3 +113,4 @@ volumes:
   postgres_data:
   redis_data:
   listmonk_data:
+  hf_cache:

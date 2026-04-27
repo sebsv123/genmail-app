@@ -5,11 +5,10 @@ export {
   ListmonkAuthError,
   ListmonkNotFoundError,
   type ListmonkConfig,
-  type Subscriber,
-  type Campaign,
-  type List,
+  type ListmonkSubscriber,
+  type ListmonkCampaign,
+  type ListmonkList,
   type CampaignStatus,
-  type CampaignType,
 } from "@genmail/email-engine";
 
 // Create singleton instance

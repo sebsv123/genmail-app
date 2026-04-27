@@ -90,9 +90,14 @@ async function handleHuntProspects(data: HuntProspectsJobData) {
   let duplicates = 0;
 
   for (const prospect of prospects) {
-    // Check for duplicate
+    // Check for duplicate (Prospect has compound unique [businessId, email])
     const existing = await db.prospect.findUnique({
-      where: { email: prospect.email },
+      where: {
+        businessId_email: {
+          businessId: icp.businessId,
+          email: prospect.email,
+        },
+      },
     });
 
     if (existing) {
@@ -218,7 +223,7 @@ async function handleSendColdEmail(data: SendColdEmailJobData) {
         });
 
         if (trendResponse.ok) {
-          const trendAnalysis = await trendResponse.json();
+          const trendAnalysis: any = await trendResponse.json();
           
           // Add trend context if urgency is high or medium
           if (trendAnalysis.urgency_level === 'high' || trendAnalysis.urgency_level === 'medium') {

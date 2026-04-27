@@ -10,6 +10,11 @@ import {
 import { db, searchSimilarChunks } from "@genmail/db";
 import { listmonk } from "../lib/listmonk-client.js";
 import { generateEmail, searchContext } from "../lib/ai-client.js";
+import {
+  getBestPractices,
+  isOptimalSendTime,
+  getOptimalSendDelay,
+} from "../lib/best-practices.js";
 
 export function createEmailWorker(): Worker {
   const worker = new Worker<SendEmailJobData>(
@@ -24,7 +29,7 @@ export function createEmailWorker(): Worker {
         include: {
           lead: {
             include: {
-              leadMemory: true,
+              memory: true,
             },
           },
           sequence: {
@@ -34,11 +39,7 @@ export function createEmailWorker(): Worker {
                   knowledgeSources: true,
                 },
               },
-              emailTemplates: {
-                where: {
-                  stepNumber: enrollment?.currentStep || 1,
-                },
-              },
+              templates: true,
             },
           },
         },
@@ -53,7 +54,9 @@ export function createEmailWorker(): Worker {
         return { skipped: true, reason: "not_active" };
       }
 
-      const template = enrollment.sequence.emailTemplates[0];
+      const template = enrollment.sequence.templates.find(
+        (t) => t.stepNumber === enrollment.currentStep
+      );
       if (!template) {
         // NURTURING_INFINITE mode - generate without template
         if (enrollment.sequence.mode !== "NURTURING_INFINITE") {
@@ -70,7 +73,7 @@ export function createEmailWorker(): Worker {
 
       // ============== LEARNING: Get Optimization Hints ==============
       const bestPractices = await getBestPractices(enrollment.sequence.businessId);
-      const leadMemory = enrollment.lead.leadMemory;
+      const leadMemory = enrollment.lead.memory;
 
       // ============== A/B TESTING: Decide Variant ==============
       let abVariantId: string | undefined;

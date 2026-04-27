@@ -66,7 +66,12 @@ async function handleCollectSectorTrends(_data: CollectSectorTrendsJobData) {
     select: { sector: true, id: true },
   });
 
-  const uniqueSectors = [...new Set(businesses.map((b) => b.sector))];
+  if (businesses.length === 0) {
+    console.log("[Signals Worker] No active businesses found");
+    return { processed: 0, sectors: [] };
+  }
+
+  const uniqueSectors: string[] = Array.from(new Set(businesses.map((b: { sector: string }) => b.sector)));
   console.log(`[Signals Worker] Processing trends for sectors: ${uniqueSectors.join(", ")}`);
 
   const results: { sector: string; trends: any[]; spike: boolean }[] = [];
@@ -108,7 +113,7 @@ async function handleCollectSectorTrends(_data: CollectSectorTrendsJobData) {
       // Si hay spike, crear notificaciones para businesses del sector
       if (hasSpike) {
         const topTrend = trends[0];
-        const sectorBusinesses = businesses.filter((b) => b.sector === sector);
+        const sectorBusinesses = businesses.filter((b: { sector: string; id: string }) => b.sector === sector);
 
         for (const business of sectorBusinesses) {
           await db.notification.create({
@@ -147,7 +152,7 @@ async function handleEnrichProspectSignals(data: EnrichProspectSignalsJobData) {
     throw new Error(`Prospect ${prospectId} not found`);
   }
 
-  if (!prospect.email || !prospect.website) {
+  if (!prospect.email || !prospect.companyWebsite) {
     return { enriched: false, reason: "Missing email or website" };
   }
 
@@ -162,7 +167,7 @@ async function handleEnrichProspectSignals(data: EnrichProspectSignalsJobData) {
 
   try {
     // Obtener señales de empresa
-    const domain = new URL(prospect.website).hostname.replace("www.", "");
+    const domain = new URL(prospect.companyWebsite).hostname.replace("www.", "");
     const companySignals = await apollo.getCompanySignals(domain);
 
     for (const signal of companySignals) {
@@ -208,7 +213,8 @@ async function handleEnrichProspectSignals(data: EnrichProspectSignalsJobData) {
   // Calcular nuevo intentScore (máximo boost total: +0.5)
   const maxBoost = 0.5;
   const actualBoost = Math.min(totalBoost, maxBoost);
-  const newIntentScore = Math.min(1, prospect.intentScore + actualBoost);
+  const currentScore = prospect.intentScore ?? 0;
+  const newIntentScore = Math.min(1, currentScore + actualBoost);
 
   // Actualizar prospecto
   const newStatus = newIntentScore > 0.5 ? "VALIDATED" : prospect.status;
@@ -257,7 +263,8 @@ async function handleProcessExternalSignal(data: ProcessExternalSignalJobData) {
 
   // Si tiene prospecto, actualizar intentScore
   if (signal.prospectId && signal.prospect) {
-    const newIntentScore = Math.min(1, signal.prospect.intentScore + signal.intentBoost);
+    const currentScore = signal.prospect.intentScore ?? 0;
+    const newIntentScore = Math.min(1, currentScore + signal.intentBoost);
     const newStatus = newIntentScore > 0.5 ? "VALIDATED" : signal.prospect.status;
 
     await db.prospect.update({

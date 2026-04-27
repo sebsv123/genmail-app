@@ -21,7 +21,7 @@ export function createSequenceWorker(): Worker {
           sequence: true,
           lead: {
             include: {
-              leadMemory: true,
+              memory: true,
             },
           },
         },
@@ -70,19 +70,22 @@ export function createSequenceWorker(): Worker {
             continue;
           }
 
-          // Check if it's time to send (based on delayDays from template)
+          // Check if it's time to send (every 3 days per step by default)
           const daysSinceEnrolled = Math.floor(
             (Date.now() - enrollment.enrolledAt.getTime()) / (1000 * 60 * 60 * 24)
           );
-          const daysSinceLastStep = enrollment.lastEmailSentAt
-            ? Math.floor(
-                (Date.now() - enrollment.lastEmailSentAt.getTime()) / (1000 * 60 * 60 * 24)
-              )
+          // Use generated email's most recent sentAt as proxy for last step
+          const lastEmail = await db.generatedEmail.findFirst({
+            where: { enrollmentId: enrollment.id, status: "SENT" },
+            orderBy: { sentAt: "desc" },
+            select: { sentAt: true },
+          });
+          const daysSinceLastStep = lastEmail?.sentAt
+            ? Math.floor((Date.now() - lastEmail.sentAt.getTime()) / (1000 * 60 * 60 * 24))
             : daysSinceEnrolled;
 
-          // Simple logic: send every 3 days per step (configurable)
-          const delayDays = template.delayDays || 3;
-          
+          const delayDays = 3; // Default delay between steps
+
           if (daysSinceLastStep >= delayDays) {
             // Time to send - queue email job
             await queueEmailJob(enrollment.id);

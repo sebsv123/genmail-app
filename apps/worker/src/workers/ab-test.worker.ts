@@ -84,7 +84,7 @@ async function createABTest(data: {
     throw new Error(`AI service failed: ${aiResponse.status}`);
   }
 
-  const aiData = await aiResponse.json();
+  const aiData: any = await aiResponse.json();
 
   // Create ABTest
   const test = await db.aBTest.create({
@@ -230,7 +230,7 @@ async function evaluateABTest(data: { testId: string }): Promise<{
     });
 
     if (aiResponse.ok) {
-      const aiData = await aiResponse.json();
+      const aiData: any = await aiResponse.json();
       explanation = aiData.explanation;
       learnings = aiData.learnings || [];
     }
@@ -249,7 +249,7 @@ async function evaluateABTest(data: { testId: string }): Promise<{
   // Create notification
   const business = await db.business.findUnique({
     where: { id: test.businessId },
-    include: { users: { where: { role: "owner" } } },
+    include: { users: { where: { role: "OWNER" } } },
   });
 
   if (business && business.users.length > 0) {
@@ -490,7 +490,7 @@ async function determineTestType(businessId: string): Promise<string> {
   const typeCounts: Record<string, number> = {};
 
   allTypes.forEach((type) => (typeCounts[type] = 0));
-  patterns.forEach((p) => (typeCounts[p.patternType] = p._count.id));
+  patterns.forEach((p: any) => (typeCounts[p.patternType] = p._count.id));
 
   // Pick type with fewest patterns
   const sorted = allTypes.sort((a, b) => typeCounts[a] - typeCounts[b]);

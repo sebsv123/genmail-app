@@ -86,7 +86,7 @@ export function Header() {
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
               <DropdownMenuSeparator />
-              <Link href="/settings">
+              <Link href={"/settings" as any}>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   Configuración

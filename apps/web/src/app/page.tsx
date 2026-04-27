@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Mail, Sparkles, Zap, BarChart3 } from "lucide-react";
 
@@ -20,10 +21,12 @@ export default function Home() {
             </a>
           </nav>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm">
-              Iniciar sesión
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/login">Iniciar sesión</Link>
             </Button>
-            <Button size="sm">Comenzar gratis</Button>
+            <Button size="sm" asChild>
+              <Link href="/register">Comenzar gratis</Link>
+            </Button>
           </div>
         </div>
       </header>
@@ -44,12 +47,14 @@ export default function Home() {
             Ahorra tiempo y aumenta tus conversiones.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" className="w-full sm:w-auto">
-              <Sparkles className="h-4 w-4 mr-2" />
-              Prueba gratis por 14 días
+            <Button size="lg" className="w-full sm:w-auto" asChild>
+              <Link href="/register">
+                <Sparkles className="h-4 w-4 mr-2" />
+                Prueba gratis por 14 días
+              </Link>
             </Button>
-            <Button variant="outline" size="lg" className="w-full sm:w-auto">
-              Ver demo
+            <Button variant="outline" size="lg" className="w-full sm:w-auto" asChild>
+              <Link href="#features">Ver demo</Link>
             </Button>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api";
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
@@ -14,10 +14,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return apiError("Unauthorized", 401);
   }
 
+  const { id } = await params;
+
   try {
     const sequence = await db.sequence.findFirst({
       where: {
-        id: params.id,
+        id,
         businessId: session.user.businessId,
       },
     });
@@ -28,7 +30,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     const templates = await db.emailTemplate.findMany({
       where: {
-        sequenceId: params.id,
+        sequenceId: id,
       },
       orderBy: {
         stepNumber: "asc",
@@ -37,7 +39,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(templates);
   } catch (error) {
-    console.error(`GET /api/sequences/${params.id}/templates error:`, error);
+    console.error(`GET /api/sequences/${id}/templates error:`, error);
     return apiError("Failed to fetch templates", 500);
   }
 }
@@ -47,6 +49,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   if (!session?.user?.businessId) {
     return apiError("Unauthorized", 401);
   }
+
+  const { id } = await params;
 
   try {
     const body = await req.json();
@@ -59,7 +63,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Verify sequence exists and belongs to business
     const sequence = await db.sequence.findFirst({
       where: {
-        id: params.id,
+        id,
         businessId: session.user.businessId,
       },
     });
@@ -70,7 +74,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     const template = await db.emailTemplate.create({
       data: {
-        sequenceId: params.id,
+        sequenceId: id,
         stepNumber,
         subject,
         bodyHtml,
@@ -82,7 +86,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(template);
   } catch (error) {
-    console.error(`POST /api/sequences/${params.id}/templates error:`, error);
+    console.error(`POST /api/sequences/${id}/templates error:`, error);
     return apiError("Failed to create template", 500);
   }
 }

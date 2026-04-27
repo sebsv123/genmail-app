@@ -53,9 +53,86 @@ export default function OnboardingPage() {
     setProhibitedClaims(prohibitedClaims.filter((c) => c !== claim));
   };
 
+  const [submitting, setSubmitting] = useState(false);
+  const [sourceType, setSourceType] = useState<"RSS" | "URL" | "DOCUMENT" | "SAMPLE_EMAIL" | null>(null);
+  const [sourceName, setSourceName] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceContent, setSourceContent] = useState("");
+  const [stepError, setStepError] = useState<string | null>(null);
+
+  const createSourceIfAny = async (): Promise<boolean> => {
+    if (!sourceType) return true; // skip
+    const needsUrl = sourceType === "RSS" || sourceType === "URL";
+    const needsContent = sourceType === "DOCUMENT" || sourceType === "SAMPLE_EMAIL";
+    if (!sourceName.trim()) {
+      setStepError("Pon un nombre a la fuente");
+      return false;
+    }
+    if (needsUrl && !sourceUrl.trim()) {
+      setStepError("Necesitas indicar la URL");
+      return false;
+    }
+    if (needsContent && !sourceContent.trim()) {
+      setStepError("Pega el contenido o texto del email");
+      return false;
+    }
+    const res = await fetch("/api/sources", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: sourceName.trim(),
+        type: sourceType,
+        url: needsUrl ? sourceUrl.trim() : undefined,
+        content: needsContent ? sourceContent.trim() : undefined,
+      }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setStepError(j.error || "No se pudo crear la fuente");
+      return false;
+    }
+    return true;
+  };
+
   const handleComplete = async () => {
-    // Mark onboarding as completed
-    router.push("/dashboard");
+    if (submitting) return;
+    setStepError(null);
+    if (!businessName || !sector) {
+      alert("Necesitamos al menos el nombre del negocio y el sector");
+      setStep(1);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName,
+          sector,
+          brandVoice,
+          prohibitedClaims,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Error al guardar onboarding");
+        return;
+      }
+      // Optionally create the knowledge source
+      const ok = await createSourceIfAny();
+      if (!ok) {
+        setSubmitting(false);
+        return;
+      }
+      // Force a full reload so NextAuth picks up the updated session
+      window.location.href = "/dashboard";
+    } catch (e) {
+      console.error(e);
+      alert("Error de red al guardar onboarding");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const renderStep1 = () => (
@@ -136,45 +213,69 @@ export default function OnboardingPage() {
     </div>
   );
 
+  const sourceOptions = [
+    { type: "RSS" as const, icon: Rss, title: "RSS Feed", subtitle: "Blog o noticias" },
+    { type: "URL" as const, icon: Link2, title: "URL de web", subtitle: "Página corporativa" },
+    { type: "DOCUMENT" as const, icon: FileText, title: "Documento", subtitle: "Pega el texto" },
+    { type: "SAMPLE_EMAIL" as const, icon: Mail, title: "Email de muestra", subtitle: "Pegar texto" },
+  ];
+
   const renderStep3 = () => (
     <div className="space-y-6">
-      <p className="text-muted-foreground">Elige una fuente de conocimiento para empezar:</p>
-      
+      <p className="text-muted-foreground">Elige una fuente de conocimiento (opcional):</p>
+
       <div className="grid grid-cols-2 gap-4">
-        <Card className="cursor-pointer hover:border-accent transition-colors">
-          <CardContent className="p-6 text-center space-y-3">
-            <Rss className="h-8 w-8 mx-auto text-accent" />
-            <p className="font-medium">RSS Feed</p>
-            <p className="text-xs text-muted-foreground">Blog o noticias</p>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:border-accent transition-colors">
-          <CardContent className="p-6 text-center space-y-3">
-            <Link2 className="h-8 w-8 mx-auto text-accent" />
-            <p className="font-medium">URL de web</p>
-            <p className="text-xs text-muted-foreground">Página corporativa</p>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:border-accent transition-colors">
-          <CardContent className="p-6 text-center space-y-3">
-            <FileText className="h-8 w-8 mx-auto text-accent" />
-            <p className="font-medium">Subir documento</p>
-            <p className="text-xs text-muted-foreground">PDF, DOCX, etc.</p>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:border-accent transition-colors">
-          <CardContent className="p-6 text-center space-y-3">
-            <Mail className="h-8 w-8 mx-auto text-accent" />
-            <p className="font-medium">Email de muestra</p>
-            <p className="text-xs text-muted-foreground">Pegar texto</p>
-          </CardContent>
-        </Card>
+        {sourceOptions.map(({ type, icon: Icon, title, subtitle }) => (
+          <Card
+            key={type}
+            className={`cursor-pointer transition-colors ${sourceType === type ? "border-accent ring-2 ring-accent" : "hover:border-accent"}`}
+            onClick={() => { setSourceType(type); setStepError(null); }}
+          >
+            <CardContent className="p-6 text-center space-y-3">
+              <Icon className="h-8 w-8 mx-auto text-accent" />
+              <p className="font-medium">{title}</p>
+              <p className="text-xs text-muted-foreground">{subtitle}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <Button variant="ghost" className="w-full" onClick={handleComplete}>
+      {sourceType && (
+        <div className="space-y-4 p-4 rounded-lg border bg-secondary/30">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Configurar {sourceOptions.find((s) => s.type === sourceType)?.title}</p>
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setSourceType(null); setStepError(null); }}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="src-name">Nombre</Label>
+            <Input id="src-name" placeholder="Ej: Blog corporativo" value={sourceName} onChange={(e) => setSourceName(e.target.value)} />
+          </div>
+          {(sourceType === "RSS" || sourceType === "URL") && (
+            <div className="space-y-2">
+              <Label htmlFor="src-url">URL</Label>
+              <Input id="src-url" type="url" placeholder="https://..." value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+            </div>
+          )}
+          {(sourceType === "DOCUMENT" || sourceType === "SAMPLE_EMAIL") && (
+            <div className="space-y-2">
+              <Label htmlFor="src-content">Contenido</Label>
+              <textarea
+                id="src-content"
+                className="w-full min-h-[100px] p-3 rounded-md border bg-background text-sm"
+                placeholder={sourceType === "SAMPLE_EMAIL" ? "Pega aquí un email de ejemplo..." : "Pega aquí el texto del documento..."}
+                value={sourceContent}
+                onChange={(e) => setSourceContent(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {stepError && <p className="text-sm text-destructive">{stepError}</p>}
+
+      <Button variant="ghost" className="w-full" onClick={() => { setSourceType(null); handleComplete(); }} disabled={submitting}>
         Lo haré después
       </Button>
     </div>
@@ -245,8 +346,9 @@ export default function OnboardingPage() {
                     setStep(step + 1);
                   }
                 }}
+                disabled={submitting}
               >
-                {step === 3 ? "Completar" : "Siguiente"}
+                {step === 3 ? (submitting ? "Guardando..." : "Completar") : "Siguiente"}
                 {step !== 3 && <ArrowRight className="h-4 w-4 ml-2" />}
               </Button>
             </div>

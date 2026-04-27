@@ -163,6 +163,7 @@ model Business {
   sector           String
   brandVoice       String?  @db.Text
   prohibitedClaims String[]
+  active           Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -180,6 +181,7 @@ model Business {
   learningEvents      LearningEvent[]
   notifications       Notification[]
   ABTest              ABTest[]
+  generatedEmails     GeneratedEmail[]
 
   @@index([name])
 }
@@ -249,15 +251,16 @@ model VerificationToken {
 }
 
 model Lead {
-  id          String    @id @default(uuid())
-  email       String
-  name        String
-  phone       String?
-  contextData Json?
-  stage       LeadStage @default(NEW)
-  intentScore Float?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(uuid())
+  email           String
+  name            String
+  phone           String?
+  contextData     Json?
+  stage           LeadStage @default(NEW)
+  intentScore     Float?
+  unsubscribedAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Relations
   businessId String
@@ -268,6 +271,7 @@ model Lead {
   analytics       AnalyticsEvent[]
   memory          LeadMemory?
   embedding       LeadEmbedding?
+  externalSignals ExternalSignal[]
 
   @@unique([businessId, email])
   @@index([businessId, stage])
@@ -339,6 +343,7 @@ model EmailTemplate {
 
 model GeneratedEmail {
   id               String               @id @default(uuid())
+  businessId       String
   subject          String
   previewText      String?
   bodyHtml         String               @db.Text
@@ -347,10 +352,15 @@ model GeneratedEmail {
   qualityScore     Float?
   qualityRationale String?
   usedSources      Json?
+  metadata         Json?
   generatedAt      DateTime             @default(now())
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
   sentAt           DateTime?
 
   // Relations
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
   leadId String
   lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
@@ -365,6 +375,7 @@ model GeneratedEmail {
   ABVariant     ABVariant?       @relation(fields: [aBVariantId], references: [id])
   aBVariantId   String?
 
+  @@index([businessId, status])
   @@index([leadId, status])
   @@index([leadId])
   @@index([enrollmentId])
@@ -400,15 +411,17 @@ model LeadMemory {
 }
 
 model KnowledgeSource {
-  id        String                       @id @default(uuid())
-  type      KnowledgeSourceType
-  name      String
-  url       String?
-  content   String?                      @db.Text
-  embedding Unsupported("vector(1536)")?
-  status    KnowledgeSourceStatus        @default(PENDING)
-  createdAt DateTime                     @default(now())
-  updatedAt DateTime                     @updatedAt
+  id           String                       @id @default(uuid())
+  type         KnowledgeSourceType
+  name         String
+  url          String?
+  content      String?                      @db.Text
+  embedding    Unsupported("vector(1024)")?
+  status       KnowledgeSourceStatus        @default(PENDING)
+  metadata     Json?
+  lastSyncedAt DateTime?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
 
   // Relations
   businessId String
@@ -528,7 +541,8 @@ model Prospect {
   icpId String
   icp   ICP    @relation(fields: [icpId], references: [id], onDelete: Cascade)
 
-  coldEmails ColdEmail[]
+  coldEmails      ColdEmail[]
+  externalSignals ExternalSignal[]
 
   @@unique([businessId, email])
   @@index([businessId, status])
@@ -797,7 +811,9 @@ model ExternalSignal {
 
   // Optional relations (one of these should be set)
   leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   prospectId String?
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@index([leadId, detectedAt])
   @@index([prospectId, detectedAt])
@@ -813,6 +829,7 @@ model SectorTrend {
   region       String   @default("ES")
   recordedAt   DateTime @default(now())
 
+  @@unique([sector, keyword, recordedAt])
   @@index([sector, recordedAt])
   @@index([keyword, region])
 }

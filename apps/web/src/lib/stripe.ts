@@ -1,14 +1,35 @@
 import Stripe from "stripe";
 import { db } from "./db";
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-if (!stripeSecretKey) {
-  throw new Error("STRIPE_SECRET_KEY is not set");
+let _stripe: Stripe | null = null;
+
+/**
+ * Lazy Stripe client. Only throws when Stripe is actually invoked.
+ * This allows the web app to boot without STRIPE_SECRET_KEY (billing endpoints
+ * will return 503 if accessed without a key).
+ */
+function getStripe(): Stripe {
+  if (_stripe) return _stripe;
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecretKey) {
+    throw new Error(
+      "STRIPE_SECRET_KEY is not set. Configure it in your .env to enable billing."
+    );
+  }
+  _stripe = new Stripe(stripeSecretKey, {
+    apiVersion: "2025-02-24.acacia" as any,
+    typescript: true,
+  });
+  return _stripe;
 }
 
-export const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2024-04-10",
-  typescript: true,
+// Export proxy that lazily initializes Stripe on first access
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    const client = getStripe();
+    const value = (client as any)[prop];
+    return typeof value === "function" ? value.bind(client) : value;
+  },
 });
 
 export interface CheckoutSessionParams {

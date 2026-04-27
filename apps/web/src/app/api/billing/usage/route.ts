@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { PLANS, getPlanLimits } from "@genmail/shared/plans";
+import { PLANS, getPlanLimits } from "@genmail/shared";
 import { apiError, apiSuccess } from "@/lib/api";
 
 export async function GET(req: NextRequest) {

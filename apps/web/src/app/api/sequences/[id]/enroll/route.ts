@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/api";
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
@@ -13,6 +13,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   if (!session?.user?.businessId) {
     return apiError("Unauthorized", 401);
   }
+
+  const { id } = await params;
 
   try {
     const body = await req.json();
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Verify sequence exists and belongs to business
     const sequence = await db.sequence.findFirst({
       where: {
-        id: params.id,
+        id,
         businessId: session.user.businessId,
       },
     });
@@ -49,20 +51,20 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Check existing enrollments
     const existingEnrollments = await db.sequenceEnrollment.findMany({
       where: {
-        sequenceId: params.id,
+        sequenceId: id,
         leadId: { in: leadIds },
       },
     });
 
     const enrolledIds = new Set(existingEnrollments.map((e) => e.leadId));
-    const newLeadIds = leadIds.filter((id) => !enrolledIds.has(id));
+    const newLeadIds = leadIds.filter((lid) => !enrolledIds.has(lid));
 
     // Create new enrollments
     const enrollments = await Promise.all(
       newLeadIds.map((leadId) =>
         db.sequenceEnrollment.create({
           data: {
-            sequenceId: params.id,
+            sequenceId: id,
             leadId,
             status: "ACTIVE",
             currentStep: 1,
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       skipped: existingEnrollments.length,
     });
   } catch (error) {
-    console.error(`POST /api/sequences/${params.id}/enroll error:`, error);
+    console.error(`POST /api/sequences/${id}/enroll error:`, error);
     return apiError("Failed to enroll leads", 500);
   }
 }

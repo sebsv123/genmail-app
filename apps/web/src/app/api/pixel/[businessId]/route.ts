@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { prisma } from "@genmail/db";
-import { queue } from "@genmail/queue";
+import { addProcessExternalSignalJob } from "@genmail/queue";
 
 // GIF 1x1 transparente en base64
 const TRANSPARENT_GIF = Buffer.from(
@@ -42,19 +42,14 @@ export async function GET(request: NextRequest, { params }: Params) {
   });
 
   try {
-    // Verificar que el business existe y tiene plan AGENCY
+    // Verificar que el business existe y tiene plan AGENCY (plan vive en Subscription)
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { plan: true, id: true },
+      select: { id: true, subscription: { select: { plan: true } } },
     });
 
-    if (!business) {
+    if (!business || business.subscription?.plan !== "AGENCY") {
       // Devolver GIF igual pero no registrar nada
-      return new NextResponse(TRANSPARENT_GIF, { headers });
-    }
-
-    // Solo registrar si plan es AGENCY
-    if (business.plan !== "AGENCY") {
       return new NextResponse(TRANSPARENT_GIF, { headers });
     }
 
@@ -100,9 +95,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     // Si hay lead, encolar procesamiento
     if (lead?.id) {
-      await queue.publish("signals", "ProcessExternalSignalJob", {
-        signalId: signal.id,
-      });
+      await addProcessExternalSignalJob(signal.id);
     }
 
     return new NextResponse(TRANSPARENT_GIF, { headers });

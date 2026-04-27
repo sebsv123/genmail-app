@@ -80,7 +80,7 @@ export default function KnowledgePage() {
 
   // Redirect if not owner
   useEffect(() => {
-    if (status === "authenticated" && session?.user?.role !== "owner") {
+    if (status === "authenticated" && session?.user?.role !== "OWNER") {
       router.push("/dashboard");
     }
   }, [session, status, router]);
@@ -110,7 +110,7 @@ export default function KnowledgePage() {
     );
   }
 
-  if (session?.user?.role !== "owner") {
+  if (session?.user?.role !== "OWNER") {
     return null;
   }
 

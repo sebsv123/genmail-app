@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { signIn, getProviders } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,29 @@ import { Separator } from "@/components/ui/separator";
 import { Sparkles, Mail } from "lucide-react";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Cargando...</div>}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Record<string, any> | null>(null);
+
+  useEffect(() => {
+    getProviders().then((p) => setProviders(p || {}));
+  }, []);
+
+  const hasGoogle = !!providers?.google;
+  const hasEmail = !!providers?.email;
+  const hasCredentials = !!providers?.credentials;
 
   const handleGoogleSignIn = () => {
     setIsLoading(true);
@@ -24,9 +43,23 @@ export default function LoginPage() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-    await signIn("email", { email, callbackUrl });
-    setIsLoading(false);
+    try {
+      if (hasEmail) {
+        await signIn("email", { email, callbackUrl });
+      } else if (hasCredentials) {
+        const res = await signIn("credentials", { email, callbackUrl, redirect: false });
+        if (res?.error) setError(res.error);
+        else router.push(callbackUrl as any);
+      } else {
+        setError("No authentication providers configured.");
+      }
+    } catch (e: any) {
+      setError(e.message || "Sign-in failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -42,7 +75,8 @@ export default function LoginPage() {
           variant="outline"
           className="w-full"
           onClick={handleGoogleSignIn}
-          disabled={isLoading}
+          disabled={isLoading || !hasGoogle}
+          title={!hasGoogle ? "Google sign-in not configured" : undefined}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path
@@ -90,9 +124,13 @@ export default function LoginPage() {
               />
             </div>
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            Enviar enlace mágico
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full" disabled={isLoading || !email}>
+            {isLoading ? "Entrando..." : hasEmail ? "Enviar enlace mágico" : "Entrar (dev)"}
           </Button>
+          {!hasEmail && hasCredentials && (
+            <p className="text-xs text-center text-muted-foreground">Modo dev: cualquier email válido funciona</p>
+          )}
         </form>
 
         <p className="text-xs text-center text-muted-foreground">

@@ -23,7 +23,10 @@ export async function GET(req: NextRequest) {
       db.lead.count({ where: { businessId } }),
       db.sequence.count({ where: { businessId } }),
       db.sequenceEnrollment.count({
-        where: { businessId, status: "ACTIVE" },
+        where: {
+          status: "ACTIVE",
+          sequence: { businessId },
+        },
       }),
       db.generatedEmail.count({
         where: { businessId, status: "SENT" },

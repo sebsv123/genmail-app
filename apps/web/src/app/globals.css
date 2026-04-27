@@ -2,57 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
-/* GenMail Dark Theme - Professional & Minimal */
+/* GenMail - Modern SaaS Palette (Violet on white, dark mode supported) */
 @layer base {
   :root {
-    /* Base colors - Dark by default */
-    --background: 0 0% 5%;
-    --foreground: 0 0% 95%;
-    
-    /* Cards - Slightly lighter than background */
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 95%;
-    
-    /* Popover */
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 95%;
-    
-    /* Primary - White text on dark */
-    --primary: 0 0% 95%;
-    --primary-foreground: 0 0% 5%;
-    
-    /* Secondary - Subtle gray */
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 95%;
-    
-    /* Muted */
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 55%;
-    
-    /* Accent - Blue tint for interactive */
-    --accent: 217 91% 60%;
+    /* Light mode - default */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 4%;
+
+    /* Primary - Vibrant violet (#7C3AED) */
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 10%;
+
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 262 83% 58%;
     --accent-foreground: 0 0% 100%;
-    
-    /* Destructive - Red for errors */
+
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    
-    /* Border - Subtle gray */
-    --border: 0 0% 18%;
-    --input: 0 0% 15%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 262 83% 58%;
+    --radius: 0.625rem;
 
     /* Status colors */
-    --status-new: 200 70% 50%;
-    --status-nurturing: 45 90% 50%;
-    --status-qualified: 280 70% 55%;
-    --status-converted: 150 70% 40%;
-    --status-unsubscribed: 0 0% 40%;
-    
+    --status-new: 217 91% 60%;
+    --status-nurturing: 38 92% 50%;
+    --status-qualified: 262 83% 58%;
+    --status-converted: 142 71% 45%;
+    --status-unsubscribed: 240 4% 46%;
+
     /* Sidebar */
-    --sidebar-bg: 0 0% 4%;
-    --sidebar-border: 0 0% 12%;
+    --sidebar-bg: 0 0% 99%;
+    --sidebar-border: 240 6% 90%;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 8% 7%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 8% 7%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 262 83% 65%;
+    --primary-foreground: 240 10% 4%;
+
+    --secondary: 240 5% 14%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 5% 14%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 262 83% 65%;
+    --accent-foreground: 240 10% 4%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5% 18%;
+    --input: 240 5% 18%;
+    --ring: 262 83% 65%;
+
+    --sidebar-bg: 240 10% 3%;
+    --sidebar-border: 240 5% 14%;
   }
 }
 

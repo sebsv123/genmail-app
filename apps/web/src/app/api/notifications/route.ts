@@ -16,21 +16,10 @@ export async function GET(req: NextRequest) {
     const notifications = await db.notification.findMany({
       where: {
         userId,
-        readAt: null,
+        read: false,
       },
       orderBy: { createdAt: "desc" },
       take: 20,
-    });
-
-    // Mark as delivered (update deliveredAt)
-    await db.notification.updateMany({
-      where: {
-        id: { in: notifications.map((n) => n.id) },
-        deliveredAt: null,
-      },
-      data: {
-        deliveredAt: new Date(),
-      },
     });
 
     return NextResponse.json({ notifications });
@@ -55,10 +44,10 @@ export async function PATCH(req: NextRequest) {
       await db.notification.updateMany({
         where: {
           userId,
-          id: notificationId ? { equals: notificationId } : undefined,
-          readAt: null,
+          ...(notificationId ? { id: notificationId } : {}),
+          read: false,
         },
-        data: { readAt: new Date() },
+        data: { read: true },
       });
     }
 

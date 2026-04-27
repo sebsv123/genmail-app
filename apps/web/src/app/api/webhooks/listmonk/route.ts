@@ -40,11 +40,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No email in event" }, { status: 400 });
     }
 
-    // Find lead by email
-    const lead = await db.lead.findUnique({
+    // Find lead by email (email is not globally unique, only within business)
+    const lead = await db.lead.findFirst({
       where: { email },
       include: {
-        leadMemory: true,
+        memory: true,
       },
     });
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         leadId: lead.id,
         status: "ACTIVE",
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { enrolledAt: "desc" },
     });
 
     // Handle different event types
@@ -68,11 +68,12 @@ export async function POST(req: NextRequest) {
         // Record OPENED event and update intent score
         await db.analyticsEvent.create({
           data: {
-            enrollmentId: enrollment?.id,
-            eventType: "OPENED",
+            leadId: lead.id,
+            type: "OPENED",
             metadata: {
               campaignId: event.data.campaign?.id,
               ipAddress: event.data.ip_address,
+              enrollmentId: enrollment?.id,
             },
           },
         });
@@ -91,12 +92,13 @@ export async function POST(req: NextRequest) {
         // Record CLICKED event and update intent score
         await db.analyticsEvent.create({
           data: {
-            enrollmentId: enrollment?.id,
-            eventType: "CLICKED",
+            leadId: lead.id,
+            type: "CLICKED",
             metadata: {
               campaignId: event.data.campaign?.id,
               link: event.data.link,
               ipAddress: event.data.ip_address,
+              enrollmentId: enrollment?.id,
             },
           },
         });
@@ -115,10 +117,11 @@ export async function POST(req: NextRequest) {
         // Record REPLIED event - major intent signal
         await db.analyticsEvent.create({
           data: {
-            enrollmentId: enrollment?.id,
-            eventType: "REPLIED",
+            leadId: lead.id,
+            type: "REPLIED",
             metadata: {
               campaignId: event.data.campaign?.id,
+              enrollmentId: enrollment?.id,
             },
           },
         });
@@ -146,10 +149,11 @@ export async function POST(req: NextRequest) {
         // Record UNSUBSCRIBED event
         await db.analyticsEvent.create({
           data: {
-            enrollmentId: enrollment?.id,
-            eventType: "UNSUBSCRIBED",
+            leadId: lead.id,
+            type: "UNSUBSCRIBED",
             metadata: {
               campaignId: event.data.campaign?.id,
+              enrollmentId: enrollment?.id,
             },
           },
         });
@@ -160,7 +164,7 @@ export async function POST(req: NextRequest) {
           data: {
             stage: "UNSUBSCRIBED",
             unsubscribedAt: new Date(),
-          },
+          } as any,
         });
 
         // Cancel active enrollments
@@ -169,7 +173,7 @@ export async function POST(req: NextRequest) {
             leadId: lead.id,
             status: "ACTIVE",
           },
-          data: { status: "BOUNCED" },
+          data: { status: "CANCELLED" },
         });
         break;
       }
@@ -178,10 +182,11 @@ export async function POST(req: NextRequest) {
         // Record BOUNCED event
         await db.analyticsEvent.create({
           data: {
-            enrollmentId: enrollment?.id,
-            eventType: "BOUNCED",
+            leadId: lead.id,
+            type: "BOUNCED",
             metadata: {
               campaignId: event.data.campaign?.id,
+              enrollmentId: enrollment?.id,
             },
           },
         });

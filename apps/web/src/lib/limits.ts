@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { PLANS, PlanLimits } from "@genmail/shared/plans";
+import { PLANS, PlanLimits } from "@genmail/shared";
 
 export interface LimitCheckResult {
   allowed: boolean;

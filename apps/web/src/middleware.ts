@@ -40,7 +40,7 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    "/(dashboard)/:path*",
+    "/dashboard/:path*",
     "/onboarding",
     "/hunt/:path*",
     "/leads/:path*",
@@ -48,5 +48,8 @@ export const config = {
     "/sources/:path*",
     "/analytics/:path*",
     "/settings/:path*",
+    "/emails/:path*",
+    "/experiments/:path*",
+    "/knowledge/:path*",
   ],
 };

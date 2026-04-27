@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Only owners can create templates
-    if (session.user.role !== "owner") {
+    if (session.user.role !== "OWNER") {
       return NextResponse.json({ error: "Only owners can create custom templates" }, { status: 403 });
     }
 

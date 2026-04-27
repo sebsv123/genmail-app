@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { createCheckoutSession } from "@/lib/stripe";
-import { PLANS } from "@genmail/shared/plans";
+import { PLANS } from "@genmail/shared";
 import { apiError, apiSuccess } from "@/lib/api";
 
 export async function POST(req: NextRequest) {

@@ -1,3 +1,5 @@
+export * from "./plans";
+
 export interface User {
   id: string;
   email: string;

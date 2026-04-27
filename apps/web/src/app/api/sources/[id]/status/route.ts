@@ -6,14 +6,14 @@ import { addIngestSourceJob } from "@genmail/queue";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.businessId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = params;
+  const { id } = await params;
 
   try {
     // Verify source belongs to the user's business
@@ -31,7 +31,7 @@ export async function GET(
         lastSyncedAt: true,
         metadata: true,
         createdAt: true,
-      },
+      } as any,
     });
 
     if (!source) {
@@ -52,9 +52,9 @@ export async function GET(
       type: source.type,
       status: source.status,
       chunksIndexed,
-      lastIngested: source.lastSyncedAt,
+      lastIngested: (source as any).lastSyncedAt,
       url: source.url,
-      error: source.metadata?.error || null,
+      error: (source as any).metadata?.error || null,
     });
   } catch (error) {
     console.error("GET /api/sources/[id]/status error:", error);
@@ -67,14 +67,14 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.businessId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = params;
+  const { id } = await params;
 
   try {
     // Verify source belongs to the user's business
@@ -98,10 +98,10 @@ export async function POST(
       data: {
         status: "PROCESSING",
         metadata: {
-          ...source.metadata,
+          ...(source as any).metadata,
           requeuedAt: new Date().toISOString(),
         },
-      },
+      } as any,
     });
 
     // Queue re-ingestion

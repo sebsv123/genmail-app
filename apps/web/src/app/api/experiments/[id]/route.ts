@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 // DELETE /api/experiments/:id - Stop an A/B test
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.businessId) {
@@ -14,7 +14,7 @@ export async function DELETE(
   }
 
   const businessId = session.user.businessId;
-  const { id } = params;
+  const { id } = await params;
 
   try {
     // Verify the test belongs to this business
@@ -44,7 +44,7 @@ export async function DELETE(
 
     // Create notification
     const owner = await db.user.findFirst({
-      where: { businessId, role: "owner" },
+      where: { businessId, role: "OWNER" },
     });
 
     if (owner) {

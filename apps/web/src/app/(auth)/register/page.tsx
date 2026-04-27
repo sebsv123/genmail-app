@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { signIn, getProviders } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,29 @@ import { Sparkles, Mail, Gift } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Cargando...</div>}>
+      <RegisterInner />
+    </Suspense>
+  );
+}
+
+function RegisterInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") || "/onboarding";
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Record<string, any> | null>(null);
+
+  useEffect(() => {
+    getProviders().then((p) => setProviders(p || {}));
+  }, []);
+
+  const hasGoogle = !!providers?.google;
+  const hasEmail = !!providers?.email;
+  const hasCredentials = !!providers?.credentials;
 
   const handleGoogleSignIn = () => {
     setIsLoading(true);
@@ -25,9 +44,27 @@ export default function RegisterPage() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-    await signIn("email", { email, callbackUrl });
-    setIsLoading(false);
+    try {
+      if (hasEmail) {
+        await signIn("email", { email, callbackUrl });
+      } else if (hasCredentials) {
+        // Dev mode: credentials provider auto-creates user + business
+        const res = await signIn("credentials", { email, callbackUrl, redirect: false });
+        if (res?.error) {
+          setError(res.error);
+        } else {
+          router.push(callbackUrl as any);
+        }
+      } else {
+        setError("No authentication providers configured. Set GOOGLE_CLIENT_ID/SECRET or RESEND_API_KEY in .env.");
+      }
+    } catch (e: any) {
+      setError(e.message || "Sign-in failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -52,7 +89,8 @@ export default function RegisterPage() {
           variant="outline"
           className="w-full"
           onClick={handleGoogleSignIn}
-          disabled={isLoading}
+          disabled={isLoading || !hasGoogle}
+          title={!hasGoogle ? "Google sign-in not configured (set GOOGLE_CLIENT_ID/SECRET in .env)" : undefined}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path
@@ -100,9 +138,13 @@ export default function RegisterPage() {
               />
             </div>
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            Crear cuenta con email
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full" disabled={isLoading || !email}>
+            {isLoading ? "Creando..." : hasEmail ? "Enviar enlace mágico" : "Crear cuenta (dev)"}
           </Button>
+          {!hasEmail && hasCredentials && (
+            <p className="text-xs text-center text-muted-foreground">Modo dev: cuenta creada automáticamente sin contraseña</p>
+          )}
         </form>
 
         <p className="text-xs text-center text-muted-foreground">

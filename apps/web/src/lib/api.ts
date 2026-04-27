@@ -25,9 +25,9 @@ export type AuthenticatedHandler = (
   session: { user: { id: string; businessId: string; role: string } }
 ) => Promise<NextResponse>;
 
-export async function withAuth(
+export function withAuth(
   handler: AuthenticatedHandler
-): Promise<NextResponse> {
+): (req: NextRequest) => Promise<NextResponse> {
   return async (req: NextRequest) => {
     const session = await getServerSession(authOptions);
 
@@ -45,9 +45,9 @@ export type BusinessHandler = (
   businessId: string
 ) => Promise<NextResponse>;
 
-export async function withBusiness(
+export function withBusiness(
   handler: BusinessHandler
-): Promise<NextResponse> {
+): (req: NextRequest) => Promise<NextResponse> {
   return async (req: NextRequest) => {
     const session = await getServerSession(authOptions);
 

@@ -55,6 +55,9 @@ export {
   ApolloClient,
   HunterClient,
   GoogleMapsClient,
+  GoogleTrendsClient,
+  googleTrendsClient,
+  type TrendData,
 } from './sources/index.js';
 
 // ==================== ENRICHMENT ====================

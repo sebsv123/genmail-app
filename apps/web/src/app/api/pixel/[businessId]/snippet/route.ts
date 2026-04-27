@@ -22,10 +22,10 @@ export async function GET(request: NextRequest, { params }: Params) {
     // Verificar que el business existe y tiene plan AGENCY
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { plan: true, id: true },
+      select: { id: true, subscription: { select: { plan: true } } },
     });
 
-    if (!business || business.plan !== "AGENCY") {
+    if (!business || business.subscription?.plan !== "AGENCY") {
       return NextResponse.json(
         { error: "Pixel tracking only available for AGENCY plan" },
         { status: 403 }

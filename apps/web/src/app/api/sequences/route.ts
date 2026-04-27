@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         _count: {
           select: { enrollments: true },
         },
-        emailTemplates: true,
+        templates: true,
       },
     });
 

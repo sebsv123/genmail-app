@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
@@ -26,6 +27,18 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const user = session?.user;
+
+  const getInitials = (name?: string | null) => {
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <aside className="w-64 bg-[hsl(var(--sidebar-bg))] border-r border-[hsl(var(--sidebar-border))] flex flex-col">
@@ -48,7 +61,7 @@ export function Sidebar() {
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={item.href as any}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 isActive 
@@ -66,12 +79,12 @@ export function Sidebar() {
       {/* User */}
       <div className="p-4 border-t border-[hsl(var(--sidebar-border))]">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-medium">
-            JP
+          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-medium text-accent-foreground">
+            {getInitials((user as any)?.name)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Juan Pérez</p>
-            <p className="text-xs text-muted-foreground truncate">Owner</p>
+            <p className="text-sm font-medium truncate">{(user as any)?.name || "User"}</p>
+            <p className="text-xs text-muted-foreground truncate">{(user as any)?.plan || "FREE"} · {(user as any)?.role || "Owner"}</p>
           </div>
         </div>
       </div>

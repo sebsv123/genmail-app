@@ -39,29 +39,28 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Get business stats for comparison
-    const business = await db.business.findUnique({
-      where: { id: session.user.businessId },
-      include: {
-        leads: {
-          where: { status: { not: "bounced" } },
-          select: {
-            status: true,
-            emails: {
-              select: { openedAt: true, clickedAt: true },
-            },
-          },
+    const businessId = session.user.businessId;
+    const [totalEmails, openedEvents, clickedEvents] = await Promise.all([
+      db.generatedEmail.count({
+        where: { businessId, status: "SENT" },
+      }),
+      db.analyticsEvent.count({
+        where: {
+          type: "OPENED",
+          lead: { businessId },
         },
-      },
-    });
-
-    // Calculate business metrics
-    const totalEmails = business?.leads.reduce((sum, lead) => sum + lead.emails.length, 0) || 0;
-    const openedEmails = business?.leads.reduce((sum, lead) => sum + lead.emails.filter(e => e.openedAt).length, 0) || 0;
-    const clickedEmails = business?.leads.reduce((sum, lead) => sum + lead.emails.filter(e => e.clickedAt).length, 0) || 0;
+      }),
+      db.analyticsEvent.count({
+        where: {
+          type: "CLICKED",
+          lead: { businessId },
+        },
+      }),
+    ]);
 
     const businessMetrics = totalEmails > 0 ? {
-      openRate: openedEmails / totalEmails,
-      clickRate: clickedEmails / totalEmails,
+      openRate: openedEvents / totalEmails,
+      clickRate: clickedEvents / totalEmails,
       totalEmails,
     } : null;
 
@@ -69,10 +68,10 @@ export async function GET(req: NextRequest) {
       sector,
       benchmark,
       vocabulary: {
-        preferred: vocabulary.filter(v => v.type === "PREFERRED").flatMap(v => v.words),
-        prohibited: vocabulary.filter(v => v.type === "PROHIBITED").flatMap(v => v.words),
-        powerWords: vocabulary.filter(v => v.type === "POWER_WORDS").flatMap(v => v.words),
-        weakWords: vocabulary.filter(v => v.type === "WEAK_WORDS").flatMap(v => v.words),
+        preferred: vocabulary.filter((v: any) => v.type === "PREFERRED").flatMap((v: any) => v.words),
+        prohibited: vocabulary.filter((v: any) => v.type === "PROHIBITED").flatMap((v: any) => v.words),
+        powerWords: vocabulary.filter((v: any) => v.type === "POWER_WORDS").flatMap((v: any) => v.words),
+        weakWords: vocabulary.filter((v: any) => v.type === "WEAK_WORDS").flatMap((v: any) => v.words),
       },
       insights,
       templates,

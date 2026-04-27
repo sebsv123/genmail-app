@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          leadMemory: true,
+          memory: true,
           _count: {
             select: { generatedEmails: true },
           },
@@ -73,17 +73,17 @@ export async function POST(req: NextRequest) {
         contextData: contextData || {},
         stage: stage || "NEW",
         businessId: session.user.businessId,
-        leadMemory: {
+        memory: {
           create: {
-            topics: [],
-            hooks: [],
-            ctas: [],
-            tone: "",
+            topicsUsed: [],
+            hooksUsed: [],
+            ctasUsed: [],
+            claimsMade: [],
           },
         },
       },
       include: {
-        leadMemory: true,
+        memory: true,
       },
     });
 

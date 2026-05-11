@@ -34,7 +34,7 @@ COPY . .
 RUN pnpm install --frozen-lockfile && cd packages/db && npx prisma generate
 
 # Build the worker
-RUN pnpm turbo run build --filter=worker
+RUN pnpm turbo run build --filter=@genmail/worker
 
 # Production stage
 FROM base AS runner

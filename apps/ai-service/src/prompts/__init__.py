@@ -8,6 +8,7 @@ from .evaluate_valentin_email import build_evaluate_valentin_email_prompt
 from .sequence_valentin import build_valentin_sequence_prompt
 from .reply_classify import build_reply_classify_prompt
 from .score_lead import build_score_lead_prompt
+from .diagnose_incident import build_diagnose_incident_prompt
 
 __all__ = [
     "build_generate_email_prompt",
@@ -20,5 +21,6 @@ __all__ = [
     "build_valentin_sequence_prompt",
     "build_reply_classify_prompt",
     "build_score_lead_prompt",
+    "build_diagnose_incident_prompt",
     "select_copy_framework",
 ]

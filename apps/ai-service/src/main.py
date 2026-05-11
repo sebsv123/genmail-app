@@ -22,6 +22,7 @@ from prompts import (
     build_valentin_sequence_prompt,
     build_reply_classify_prompt,
     build_score_lead_prompt,
+    build_diagnose_incident_prompt,
 )
 from schemas import (
     HealthResponse,
@@ -53,6 +54,8 @@ from schemas import (
     SequenceEmailItem,
     ScoreLeadRequest,
     ScoreLeadResponse,
+    DiagnoseIncidentRequest,
+    DiagnoseIncidentResponse,
 )
 
 # Configure logging
@@ -153,6 +156,7 @@ async def root() -> dict:
             "generate_valentin_sequence": "POST /generate-valentin-sequence",
             "classify_valentin_reply": "POST /classify-valentin-reply",
             "score_lead": "POST /score-lead",
+            "diagnose_incident": "POST /diagnose-incident",
         },
         "docs": "/docs",
     }
@@ -1312,6 +1316,93 @@ async def analyze_trend_context(request: AnalyzeTrendContextRequest) -> AnalyzeT
             recommended_hook="Conectemos para explorar oportunidades.",
             urgency_level="low"
         )
+
+
+# ============== INCIDENT DIAGNOSIS ==============
+
+@app.post("/diagnose-incident", response_model=DiagnoseIncidentResponse)
+async def diagnose_incident(request: DiagnoseIncidentRequest) -> DiagnoseIncidentResponse:
+    """Diagnose an incident/anomaly in the GenMail platform.
+
+    Analyzes error/anomaly data from platform services to determine:
+    - Root cause with confidence level
+    - Severity (critical, high, medium, low)
+    - Affected scope (services, businesses, users)
+    - Recommended remediation actions (runbooks)
+    - Whether human escalation is needed
+
+    Returns a structured diagnosis with actionable recommendations.
+    """
+    if not llm_provider:
+        raise HTTPException(status_code=503, detail="LLM provider not initialized")
+
+    logger.info(
+        "diagnosing_incident",
+        anomaly_type=request.anomaly_type,
+        service=request.service,
+    )
+
+    # Build diagnosis prompt
+    messages = build_diagnose_incident_prompt(
+        anomaly_type=request.anomaly_type,
+        service=request.service,
+        error_data=request.error_data,
+        recent_context=request.recent_context,
+    )
+
+    try:
+        # Call LLM with low temperature for consistent diagnosis
+        response_data = await llm_provider.generate_json(
+            messages=messages,
+            temperature=0.2,
+            max_tokens=2000,
+        )
+
+        # Parse recommended actions
+        actions_data = response_data.get("recommended_actions", [])
+        recommended_actions = []
+        for action_data in actions_data:
+            recommended_actions.append(RecommendedAction(
+                runbook=action_data.get("runbook", "notify_human"),
+                params=action_data.get("params", {}),
+                priority=action_data.get("priority", 5),
+                auto_execute=action_data.get("auto_execute", False),
+                reason=action_data.get("reason", ""),
+            ))
+
+        # Parse affected scope
+        scope_data = response_data.get("affected_scope", {})
+        affected_scope = AffectedScope(
+            services=scope_data.get("services", [request.service]),
+            businesses=scope_data.get("businesses"),
+            users_impacted=scope_data.get("users_impacted", "unknown"),
+        )
+
+        logger.info(
+            "incident_diagnosed",
+            incident_id=response_data.get("incident_id", ""),
+            severity=response_data.get("severity", "unknown"),
+            confidence=response_data.get("confidence", 0),
+            actions_count=len(recommended_actions),
+            escalation_needed=response_data.get("human_escalation_needed", False),
+        )
+
+        return DiagnoseIncidentResponse(
+            incident_id=response_data.get("incident_id", ""),
+            severity=response_data.get("severity", "medium"),
+            root_cause=response_data.get("root_cause", ""),
+            confidence=response_data.get("confidence", 0.0),
+            affected_scope=affected_scope,
+            recommended_actions=recommended_actions,
+            human_escalation_needed=response_data.get("human_escalation_needed", False),
+            whatsapp_alert_text=response_data.get("whatsapp_alert_text", ""),
+            estimated_resolution_time=response_data.get("estimated_resolution_time", ""),
+            monitoring_after=response_data.get("monitoring_after", []),
+        )
+
+    except Exception as e:
+        logger.error("incident_diagnosis_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Incident diagnosis failed: {str(e)}")
 
 
 if __name__ == "__main__":

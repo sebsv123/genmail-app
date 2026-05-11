@@ -376,3 +376,39 @@ class ScoreLeadResponse(BaseModel):
     personalization_available: list[str] = Field(default_factory=list, description="Data points available for personalization")
     risk_flags: list[str] = Field(default_factory=list, description="Risk flags detected")
     estimated_intent: int = Field(..., ge=1, le=10, description="Estimated intent level 1-10")
+
+
+# ============== INCIDENT DIAGNOSIS ==============
+
+class DiagnoseIncidentRequest(BaseModel):
+    anomaly_type: str = Field(..., description="Type of anomaly (high_error_rate, service_down, queue_backlog, email_bounce_spike, latency_spike)")
+    service: str = Field(..., description="Affected service (web, ai-service, worker, database, redis, email-provider)")
+    error_data: dict = Field(..., description="Error/anomaly data including metrics, logs, and error messages")
+    recent_context: dict | None = Field(default=None, description="Recent context (deployments, config changes, etc.)")
+
+
+class RecommendedAction(BaseModel):
+    runbook: str = Field(..., description="Runbook to execute (restart_service, requeue_jobs, pause_sequence, pause_icp, block_email_before_send, quarantine_lead, activate_fallback_mode, notify_human, no_action_needed)")
+    params: dict = Field(default_factory=dict, description="Parameters for the runbook")
+    priority: int = Field(..., ge=1, le=10, description="Execution priority 1-10")
+    auto_execute: bool = Field(..., description="Whether this action can be auto-executed")
+    reason: str = Field(..., description="Why this action is recommended")
+
+
+class AffectedScope(BaseModel):
+    services: list[str] = Field(..., description="Affected services")
+    businesses: list[str] | None = Field(default=None, description="Affected business IDs if applicable")
+    users_impacted: str = Field(..., description="Impact level (none|single|few|many|all)")
+
+
+class DiagnoseIncidentResponse(BaseModel):
+    incident_id: str = Field(..., description="Auto-generated incident ID or error reference")
+    severity: str = Field(..., description="Severity level (critical|high|medium|low)")
+    root_cause: str = Field(..., description="Clear description of what caused the anomaly")
+    confidence: float = Field(..., ge=0, le=1, description="Confidence in the diagnosis 0-1")
+    affected_scope: AffectedScope = Field(..., description="Scope of the incident")
+    recommended_actions: list[RecommendedAction] = Field(..., description="Recommended remediation actions")
+    human_escalation_needed: bool = Field(..., description="Whether human escalation is needed")
+    whatsapp_alert_text: str = Field(default="", description="WhatsApp alert text if escalation needed")
+    estimated_resolution_time: str = Field(..., description="Expected resolution time")
+    monitoring_after: list[str] = Field(default_factory=list, description="What to monitor after remediation")

@@ -13,6 +13,18 @@ import { learningWorker } from "./workers/learning.worker.js";
 import { abTestWorker } from "./workers/ab-test.worker.js";
 import { createSignalsWorker } from "./workers/signals.worker.js";
 
+// New workers
+import {
+  createLeadProcessingWorker,
+  createEmailSendWorker,
+  createReplyCheckWorker,
+  createSequenceSchedulerWorker,
+  closeAllQueues,
+} from "./queues/index.js";
+import { processLead } from "./workers/leadProcessingWorker.js";
+import { sendPendingEmails } from "./workers/emailSendWorker.js";
+import { checkReplies } from "./workers/replyCheckWorker.js";
+
 const VERSION = "0.1.0";
 
 console.log(`
@@ -27,6 +39,7 @@ console.log(`
 // Start all workers
 console.log("[Main] Starting workers...");
 
+// Existing workers
 const sequenceWorker = createSequenceWorker();
 console.log("✓ Sequence worker started (concurrency: 1)");
 
@@ -42,6 +55,26 @@ console.log("✓ AB Test worker started (concurrency: 1)");
 
 const signalsWorker = createSignalsWorker();
 console.log("✓ Signals worker started (concurrency: 3)");
+
+// New workers
+const leadProcessingWorker = createLeadProcessingWorker(processLead, 2);
+console.log("✓ Lead processing worker started (concurrency: 2)");
+
+const emailSendBullWorker = createEmailSendWorker(async () => {
+  await sendPendingEmails();
+}, 1);
+console.log("✓ Email send worker started (concurrency: 1)");
+
+const replyCheckBullWorker = createReplyCheckWorker(async () => {
+  await checkReplies();
+}, 1);
+console.log("✓ Reply check worker started (concurrency: 1)");
+
+const sequenceSchedulerBullWorker = createSequenceSchedulerWorker(async () => {
+  // Sequence scheduler logic — will be implemented in a future phase
+  console.log("[SequenceScheduler] Checking active sequences...");
+}, 1);
+console.log("✓ Sequence scheduler worker started (concurrency: 1)");
 
 // Register schedulers
 registerSequenceScheduler().then(() => {
@@ -72,7 +105,7 @@ registerSignalsScheduler().then(() => {
 async function gracefulShutdown(signal: string) {
   console.log(`\n[Main] Received ${signal}, starting graceful shutdown...`);
 
-  // Close workers
+  // Close all workers
   await Promise.all([
     sequenceWorker.close(),
     emailWorker.close(),
@@ -81,8 +114,16 @@ async function gracefulShutdown(signal: string) {
     learningWorker.close(),
     abTestWorker.close(),
     signalsWorker.close(),
+    leadProcessingWorker.close(),
+    emailSendBullWorker.close(),
+    replyCheckBullWorker.close(),
+    sequenceSchedulerBullWorker.close(),
   ]);
   console.log("✓ All workers closed");
+
+  // Close queues
+  await closeAllQueues();
+  console.log("✓ All queues closed");
 
   // Close Redis connection
   closeRedisConnection();

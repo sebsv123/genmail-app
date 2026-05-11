@@ -16,6 +16,12 @@ from prompts import (
     build_extract_voice_prompt,
     select_copy_framework,
     build_generate_cold_email_prompt,
+    build_classify_lead_prompt,
+    build_valentin_email_prompt,
+    build_evaluate_valentin_email_prompt,
+    build_valentin_sequence_prompt,
+    build_reply_classify_prompt,
+    build_score_lead_prompt,
 )
 from schemas import (
     HealthResponse,
@@ -36,6 +42,17 @@ from schemas import (
     SearchContextResponse,
     AnalyzeTrendContextRequest,
     AnalyzeTrendContextResponse,
+    ClassifyLeadRequest,
+    ClassifyLeadResponse,
+    ValentinEmailRequest,
+    ValentinEmailResponse,
+    EvaluateValentinEmailRequest,
+    EvaluateValentinEmailResponse,
+    ValentinSequenceRequest,
+    ValentinSequenceResponse,
+    SequenceEmailItem,
+    ScoreLeadRequest,
+    ScoreLeadResponse,
 )
 
 # Configure logging
@@ -130,6 +147,12 @@ async def root() -> dict:
             "embed_source": "POST /embed-source",
             "embed_lead": "POST /embed-lead",
             "search_context": "POST /search-context",
+            "classify_lead": "POST /classify-lead",
+            "generate_valentin_email": "POST /generate-valentin-email",
+            "evaluate_valentin_email": "POST /evaluate-valentin-email",
+            "generate_valentin_sequence": "POST /generate-valentin-sequence",
+            "classify_valentin_reply": "POST /classify-valentin-reply",
+            "score_lead": "POST /score-lead",
         },
         "docs": "/docs",
     }
@@ -521,6 +544,296 @@ async def search_context(request: SearchContextRequest) -> SearchContextResponse
     except Exception as e:
         logger.error("query_embedding_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Query embedding failed: {str(e)}")
+
+
+# ============== LEAD CLASSIFICATION (ICP) ==============
+
+@app.post("/classify-lead", response_model=ClassifyLeadResponse)
+async def classify_lead(request: ClassifyLeadRequest) -> ClassifyLeadResponse:
+    """Classify a lead into an ICP (Ideal Customer Profile).
+    
+    Uses the LLM to analyze lead data against defined ICPs for
+    Valentín Protección Integral insurance agency. Returns the
+    best matching ICP with confidence score, recommended products,
+    and intent assessment.
+    """
+    if not llm_provider:
+        raise HTTPException(status_code=503, detail="LLM provider not initialized")
+    
+    logger.info(
+        "classifying_lead",
+        source=request.source,
+        trigger=request.trigger,
+        zone=request.zone,
+    )
+    
+    # Build classification prompt
+    messages = build_classify_lead_prompt(
+        lead_data=request.lead_data,
+        source=request.source,
+        trigger=request.trigger,
+        zone=request.zone,
+    )
+    
+    try:
+        # Call LLM with low temperature for consistent classification
+        response_data = await llm_provider.generate_json(
+            messages=messages,
+            temperature=0.1,
+            max_tokens=1000,
+        )
+        
+        logger.info(
+            "lead_classified",
+            icp_slug=response_data.get("icp_slug", "unknown"),
+            confidence=response_data.get("confidence", 0),
+            intent_score=response_data.get("intent_score", 0),
+        )
+        
+        return ClassifyLeadResponse(
+            icp_slug=response_data.get("icp_slug", "descartado"),
+            confidence=response_data.get("confidence", 0.0),
+            reasoning=response_data.get("reasoning", ""),
+            primary_product=response_data.get("primary_product", ""),
+            secondary_products=response_data.get("secondary_products", []),
+            intent_score=response_data.get("intent_score", 0),
+            urgency=response_data.get("urgency", "baja"),
+            needs_enrichment=response_data.get("needs_enrichment", False),
+            discard_reason=response_data.get("discard_reason", ""),
+        )
+        
+    except Exception as e:
+        logger.error("lead_classification_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Lead classification failed: {str(e)}")
+
+
+# ============== VALENTÍN EMAIL GENERATION ==============
+
+@app.post("/generate-valentin-email", response_model=ValentinEmailResponse)
+async def generate_valentin_email(request: ValentinEmailRequest) -> ValentinEmailResponse:
+    """Generate a personalized email for Valentín Protección Integral leads.
+    
+    Uses the specialized Valentín brand voice, ICP-specific copy frameworks,
+    and strict brand guidelines to generate emails that feel human, direct,
+    and sincere. Supports multi-step sequences with anti-repetition memory.
+    """
+    if not llm_provider:
+        raise HTTPException(status_code=503, detail="LLM provider not initialized")
+    
+    logger.info(
+        "generating_valentin_email",
+        first_name=request.first_name,
+        zone=request.zone,
+        icp_slug=request.icp_slug,
+        step=request.sequence_step,
+    )
+    
+    # Build Valentín email prompt
+    messages = build_valentin_email_prompt(
+        first_name=request.first_name,
+        zone=request.zone,
+        icp_slug=request.icp_slug,
+        intent_signal=request.intent_signal,
+        primary_product=request.primary_product,
+        sequence_step=request.sequence_step,
+        sequence_total=request.sequence_total,
+        previous_emails_summary=request.previous_emails_summary,
+        extra_context=request.extra_context,
+    )
+    
+    try:
+        # Call LLM with higher temperature for creative copywriting
+        response_data = await llm_provider.generate_json(
+            messages=messages,
+            temperature=0.7,
+            max_tokens=2000,
+        )
+        
+        logger.info(
+            "valentin_email_generated",
+            framework_used=response_data.get("framework_used", ""),
+            word_count=response_data.get("word_count", 0),
+        )
+        
+        return ValentinEmailResponse(
+            subject_line=response_data.get("subject_line", ""),
+            subject_line_alt=response_data.get("subject_line_alt", ""),
+            preview_text=response_data.get("preview_text", ""),
+            greeting=response_data.get("greeting", ""),
+            body_html=response_data.get("body_html", ""),
+            body_text=response_data.get("body_text", ""),
+            cta_text=response_data.get("cta_text", ""),
+            cta_url=response_data.get("cta_url", "https://wa.me/34603448765"),
+            signature=response_data.get("signature", ""),
+            word_count=response_data.get("word_count", 0),
+            framework_used=response_data.get("framework_used", ""),
+            hook_type=response_data.get("hook_type", ""),
+            personalization_elements=response_data.get("personalization_elements", []),
+            anticipated_objection=response_data.get("anticipated_objection", ""),
+        )
+        
+    except Exception as e:
+        logger.error("valentin_email_generation_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Valentin email generation failed: {str(e)}")
+
+
+# ============== VALENTÍN EMAIL EVALUATION ==============
+
+@app.post("/evaluate-valentin-email", response_model=EvaluateValentinEmailResponse)
+async def evaluate_valentin_email(request: EvaluateValentinEmailRequest) -> EvaluateValentinEmailResponse:
+    """Evaluate a Valentín Protección Integral email for quality and compliance.
+    
+    Uses the specialized Valentín evaluation criteria to score emails on:
+    - Compliance with brand rules and prohibitions
+    - Personalization quality
+    - Message clarity
+    - Subject line power
+    - CTA strength
+    - Brand tone alignment
+    
+    Returns a detailed breakdown with send recommendation.
+    """
+    if not llm_provider:
+        raise HTTPException(status_code=503, detail="LLM provider not initialized")
+    
+    logger.info(
+        "evaluating_valentin_email",
+        first_name=request.first_name,
+        icp_slug=request.icp_slug,
+        subject_preview=request.subject_line[:50],
+    )
+    
+    # Build evaluation prompt
+    messages = build_evaluate_valentin_email_prompt(
+        subject_line=request.subject_line,
+        body_text=request.body_text,
+        first_name=request.first_name,
+        zone=request.zone,
+        icp_slug=request.icp_slug,
+        primary_product=request.primary_product,
+        sequence_step=request.sequence_step,
+        framework_used=request.framework_used,
+        cta_text=request.cta_text,
+        cta_url=request.cta_url,
+        word_count=request.word_count,
+    )
+    
+    try:
+        # Call LLM with low temperature for consistent evaluation
+        response_data = await llm_provider.generate_json(
+            messages=messages,
+            temperature=0.2,
+            max_tokens=1500,
+        )
+        
+        logger.info(
+            "valentin_email_evaluated",
+            total_score=response_data.get("total_score", 0),
+            recommendation=response_data.get("send_recommendation", "unknown"),
+        )
+        
+        return EvaluateValentinEmailResponse(
+            compliance=response_data.get("compliance", 0),
+            personalization=response_data.get("personalization", 0),
+            clarity=response_data.get("clarity", 0),
+            subject_power=response_data.get("subject_power", 0),
+            cta_strength=response_data.get("cta_strength", 0),
+            brand_tone=response_data.get("brand_tone", 0),
+            total_score=response_data.get("total_score", 0),
+            send_recommendation=response_data.get("send_recommendation", "manual_review"),
+            prohibited_terms_found=response_data.get("prohibited_terms_found", []),
+            compliance_issues=response_data.get("compliance_issues", []),
+            strengths=response_data.get("strengths", []),
+            improvements=response_data.get("improvements", []),
+            blocking_reason=response_data.get("blocking_reason", ""),
+        )
+        
+    except Exception as e:
+        logger.error("valentin_email_evaluation_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Valentin email evaluation failed: {str(e)}")
+
+
+# ============== VALENTÍN SEQUENCE DESIGN ==============
+
+@app.post("/generate-valentin-sequence", response_model=ValentinSequenceResponse)
+async def generate_valentin_sequence(request: ValentinSequenceRequest) -> ValentinSequenceResponse:
+    """Design a multi-email sequence for Valentín Protección Integral leads.
+    
+    Uses the LLM to design 3-5 email sequences with:
+    - Timing progression (day 1, 3, 7, 14, 21 for cold; day 1, 4, 10 for urgency)
+    - Content progression (Hook → Valor → Social proof → Objeción → Cierre suave)
+    - Escalada de urgencia controlada
+    - Stop triggers for when prospect responds
+    
+    Returns a complete sequence with individual email details.
+    """
+    if not llm_provider:
+        raise HTTPException(status_code=503, detail="LLM provider not initialized")
+    
+    logger.info(
+        "generating_valentin_sequence",
+        first_name=request.first_name,
+        zone=request.zone,
+        icp_slug=request.icp_slug,
+        primary_product=request.primary_product,
+        urgency_level=request.urgency_level,
+    )
+    
+    # Build sequence prompt
+    messages = build_valentin_sequence_prompt(
+        icp_slug=request.icp_slug,
+        first_name=request.first_name,
+        zone=request.zone,
+        primary_product=request.primary_product,
+        trigger=request.trigger,
+        urgency_level=request.urgency_level,
+    )
+    
+    try:
+        # Call LLM with balanced temperature for strategic design
+        response_data = await llm_provider.generate_json(
+            messages=messages,
+            temperature=0.4,
+            max_tokens=3000,
+        )
+        
+        # Parse emails from response
+        emails_data = response_data.get("emails", [])
+        emails = []
+        for email_data in emails_data:
+            emails.append(SequenceEmailItem(
+                step=email_data.get("step", 1),
+                send_day=email_data.get("send_day", 0),
+                mission=email_data.get("mission", ""),
+                framework=email_data.get("framework", ""),
+                subject_line=email_data.get("subject_line", ""),
+                subject_line_alt=email_data.get("subject_line_alt", ""),
+                preview_text=email_data.get("preview_text", ""),
+                body_text=email_data.get("body_text", ""),
+                cta_text=email_data.get("cta_text", ""),
+                word_count=email_data.get("word_count", 0),
+                urgency_level=email_data.get("urgency_level", "low"),
+            ))
+        
+        logger.info(
+            "valentin_sequence_generated",
+            sequence_name=response_data.get("sequence_name", ""),
+            total_emails=len(emails),
+        )
+        
+        return ValentinSequenceResponse(
+            sequence_name=response_data.get("sequence_name", ""),
+            icp_slug=response_data.get("icp_slug", request.icp_slug),
+            total_emails=len(emails),
+            emails=emails,
+            stop_triggers=response_data.get("stop_triggers", ["respuesta positiva", "reply any", "clic en CTA"]),
+            estimated_reply_rate=response_data.get("estimated_reply_rate", ""),
+            best_send_times=response_data.get("best_send_times", ["martes 10:00", "jueves 10:00"]),
+        )
+        
+    except Exception as e:
+        logger.error("valentin_sequence_generation_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Valentin sequence generation failed: {str(e)}")
 
 
 # ============== LEARNING: ANALYSIS ENDPOINTS ==============

@@ -219,3 +219,160 @@ class AnalyzeTrendContextResponse(BaseModel):
     summary: str = Field(..., description="Summary of trend context")
     recommended_hook: str = Field(..., description="Recommended hook for emails")
     urgency_level: Literal["high", "medium", "low"] = Field(..., description="Urgency level based on trends")
+
+
+# ============== VALENTÍN EMAIL EVALUATION ==============
+
+class EvaluateValentinEmailRequest(BaseModel):
+    subject_line: str = Field(..., description="Email subject line to evaluate")
+    body_text: str = Field(..., description="Email body text to evaluate")
+    first_name: str = Field(..., description="Prospect's first name")
+    zone: str = Field(..., description="Geographic zone")
+    icp_slug: str = Field(..., description="ICP identifier")
+    primary_product: str = Field(..., description="Target product")
+    sequence_step: int = Field(..., ge=1, le=10, description="Current step number")
+    framework_used: str = Field(..., description="Copy framework used")
+    cta_text: str = Field(..., description="CTA text used")
+    cta_url: str = Field(..., description="CTA URL used")
+    word_count: int = Field(..., ge=0, description="Word count of the email")
+
+
+class EvaluateValentinEmailResponse(BaseModel):
+    compliance: int = Field(..., ge=0, le=20, description="Compliance score 0-20")
+    personalization: int = Field(..., ge=0, le=20, description="Personalization score 0-20")
+    clarity: int = Field(..., ge=0, le=15, description="Clarity score 0-15")
+    subject_power: int = Field(..., ge=0, le=15, description="Subject power score 0-15")
+    cta_strength: int = Field(..., ge=0, le=15, description="CTA strength score 0-15")
+    brand_tone: int = Field(..., ge=0, le=15, description="Brand tone score 0-15")
+    total_score: int = Field(..., ge=0, le=100, description="Total score 0-100")
+    send_recommendation: str = Field(..., description="send_now|send_with_note|manual_review|block")
+    prohibited_terms_found: list[str] = Field(default_factory=list, description="Prohibited terms found")
+    compliance_issues: list[str] = Field(default_factory=list, description="Compliance issues found")
+    strengths: list[str] = Field(default_factory=list, description="Email strengths")
+    improvements: list[str] = Field(default_factory=list, description="Suggested improvements")
+    blocking_reason: str = Field(default="", description="Reason if blocked")
+
+
+# ============== LEAD CLASSIFICATION (ICP) ==============
+
+class ClassifyLeadRequest(BaseModel):
+    lead_data: dict = Field(..., description="Lead information (name, email, message, phone, etc.)")
+    source: str = Field(default="", description="Where the lead came from (web, whatsapp, referral, phone)")
+    trigger: str = Field(default="", description="What triggered the contact (form, call, message, newsletter)")
+    zone: str = Field(default="", description="Geographic zone if known")
+
+
+class ClassifyLeadResponse(BaseModel):
+    icp_slug: str = Field(..., description="ICP identifier (salud-madrid, extranjeros-nie, etc.)")
+    confidence: float = Field(..., ge=0, le=1, description="Classification confidence 0-1")
+    reasoning: str = Field(..., description="Brief explanation of the classification")
+    primary_product: str = Field(..., description="Recommended primary product")
+    secondary_products: list[str] = Field(default_factory=list, description="Recommended secondary products")
+    intent_score: int = Field(..., ge=0, le=100, description="Intent score 0-100")
+    urgency: str = Field(..., description="Urgency level (baja, media, alta)")
+    needs_enrichment: bool = Field(..., description="Whether more data is needed for confident classification")
+    discard_reason: str = Field(default="", description="Reason if lead was discarded")
+
+
+# ============== VALENTÍN EMAIL GENERATION ==============
+
+class ValentinEmailRequest(BaseModel):
+    first_name: str = Field(..., description="Prospect's first name")
+    zone: str = Field(..., description="Geographic zone (e.g., Boadilla del Monte)")
+    icp_slug: str = Field(..., description="ICP identifier from classification")
+    intent_signal: str = Field(..., description="Detected intent signal")
+    primary_product: str = Field(..., description="Target product")
+    sequence_step: int = Field(..., ge=1, le=10, description="Current step number (1=first contact)")
+    sequence_total: int = Field(..., ge=1, le=10, description="Total steps in sequence")
+    previous_emails_summary: str = Field(default="", description="Summary of previous emails sent")
+    extra_context: str = Field(default="", description="Additional context about the lead")
+
+
+class ValentinEmailResponse(BaseModel):
+    subject_line: str = Field(..., description="Email subject line (max 55 chars)")
+    subject_line_alt: str = Field(..., description="Alternative subject line for A/B testing")
+    preview_text: str = Field(..., description="Preview text (max 90 chars)")
+    greeting: str = Field(..., description="Email greeting")
+    body_html: str = Field(..., description="HTML version of email body")
+    body_text: str = Field(..., description="Plain text version of email body")
+    cta_text: str = Field(..., description="CTA text")
+    cta_url: str = Field(default="https://wa.me/34603448765", description="CTA URL (always WhatsApp)")
+    signature: str = Field(..., description="Email signature")
+    word_count: int = Field(..., ge=0, description="Word count of the email body")
+    framework_used: str = Field(..., description="Copy framework used (AIDA, PAS, etc.)")
+    hook_type: str = Field(..., description="Type of hook used")
+    personalization_elements: list[str] = Field(default_factory=list, description="Personalization elements used")
+    anticipated_objection: str = Field(..., description="Anticipated objection addressed in the email")
+
+
+# ============== VALENTÍN SEQUENCE DESIGN ==============
+
+class ValentinSequenceRequest(BaseModel):
+    icp_slug: str = Field(..., description="ICP identifier from classification")
+    first_name: str = Field(..., description="Prospect's first name")
+    zone: str = Field(..., description="Geographic zone (e.g., Boadilla del Monte)")
+    primary_product: str = Field(..., description="Target product")
+    trigger: str = Field(..., description="What triggered the contact (form, call, message, newsletter)")
+    urgency_level: str = Field(..., description="Urgency level (baja, media, alta)")
+
+
+class SequenceEmailItem(BaseModel):
+    step: int = Field(..., ge=1, le=10, description="Step number in the sequence")
+    send_day: int = Field(..., ge=0, description="Day to send (0 = day 1, 2 = day 3, etc.)")
+    mission: str = Field(..., description="What this email needs to achieve")
+    framework: str = Field(..., description="Copy framework to use")
+    subject_line: str = Field(..., description="Email subject line")
+    subject_line_alt: str = Field(..., description="Alternative subject line for A/B testing")
+    preview_text: str = Field(..., description="Preview text (max 90 chars)")
+    body_text: str = Field(..., description="Email body text")
+    cta_text: str = Field(..., description="CTA text")
+    word_count: int = Field(..., ge=0, description="Word count of the email body")
+    urgency_level: str = Field(..., description="Urgency level for this email (low|medium|high)")
+
+
+class ValentinSequenceResponse(BaseModel):
+    sequence_name: str = Field(..., description="Name of the sequence")
+    icp_slug: str = Field(..., description="ICP identifier")
+    total_emails: int = Field(..., ge=3, le=5, description="Total number of emails in the sequence")
+    emails: list[SequenceEmailItem] = Field(..., description="List of emails in the sequence")
+    stop_triggers: list[str] = Field(default_factory=list, description="Triggers that should stop the sequence")
+    estimated_reply_rate: str = Field(..., description="Estimated reply rate (e.g., '15%')")
+    best_send_times: list[str] = Field(default_factory=list, description="Best times to send emails")
+
+
+# ============== VALENTÍN REPLY CLASSIFICATION ==============
+
+class ReplyClassifyRequest(BaseModel):
+    lead_name: str = Field(..., description="Name of the lead who replied")
+    icp_slug: str = Field(..., description="ICP identifier from classification")
+    sent_subject: str = Field(..., description="Subject line of the email that was sent")
+    reply_text: str = Field(..., description="The reply text from the lead")
+    language: str = Field(default="es", description="Language of the reply (es/en)")
+
+
+class ReplyClassifyResponse(BaseModel):
+    intent: str = Field(..., description="Detected intent (positive|neutral|negative|unsubscribe|question|out_of_office)")
+    action: str = Field(..., description="Action to take (notify_urgent|notify_standard|auto_respond|continue_sequence|stop_and_flag)")
+    urgency: str = Field(..., description="Urgency level (immediate|2h|24h|none)")
+    summary_es: str = Field(..., description="Brief explanation of the classification in Spanish (max 100 chars)")
+    suggested_response: str = Field(default="", description="Suggested response text if action is auto_respond")
+    stop_sequence: bool = Field(..., description="Whether to stop the email sequence")
+    whatsapp_alert_text: str = Field(default="", description="WhatsApp alert text for notify_urgent or notify_standard")
+
+
+# ============== LEAD SCORING ==============
+
+class ScoreLeadRequest(BaseModel):
+    lead_data: dict = Field(..., description="Lead information (name, email, message, phone, etc.)")
+    source: str = Field(..., description="Where the lead came from (web, whatsapp, referral, phone)")
+    icp_slug: str = Field(..., description="ICP identifier from classification")
+
+
+class ScoreLeadResponse(BaseModel):
+    quality_score: int = Field(..., ge=0, le=100, description="Quality score 0-100")
+    action: str = Field(..., description="Action to take (priority_sequence|standard_sequence|enrich_first|discard)")
+    discard_reason: str | None = Field(default=None, description="Reason if discarded")
+    enrichment_needed: list[str] = Field(default_factory=list, description="Fields that need enrichment")
+    personalization_available: list[str] = Field(default_factory=list, description="Data points available for personalization")
+    risk_flags: list[str] = Field(default_factory=list, description="Risk flags detected")
+    estimated_intent: int = Field(..., ge=1, le=10, description="Estimated intent level 1-10")

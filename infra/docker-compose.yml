@@ -45,14 +45,20 @@ services:
     env_file:
       - ../.env
     environment:
-      # API keys (OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY) come from env_file.
-      # Below are defaults overridable via .env.
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-nano}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
       XAI_MODEL: ${XAI_MODEL:-grok-2-latest}
       LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       EMBEDDING_MODE: local
+      # Override URLs for Docker networking
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/genmail
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     mem_limit: 6g
     deploy:
       resources:
@@ -65,6 +71,63 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
+
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    container_name: genmail-worker
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/genmail
+      REDIS_URL: redis://redis:6379/0
+      AI_SERVICE_URL: http://ai-service:8000
+      LISTMONK_BASE_URL: http://listmonk:9000
+      NODE_ENV: production
+      SEED_SECTORS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  watchdog:
+    build:
+      context: ../apps/watchdog
+      dockerfile: Dockerfile
+    container_name: genmail-watchdog
+    restart: always
+    ports:
+      - "8001:8001"
+    env_file:
+      - ../.env
+    environment:
+      AI_SERVICE_URL: http://ai-service:8000
+      WORKER_URL: http://worker:3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/genmail
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      WATCHDOG_INTERVAL_SECONDS: ${WATCHDOG_INTERVAL_SECONDS:-60}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   listmonk:
     image: listmonk/listmonk:latest
@@ -86,28 +149,6 @@ services:
         condition: service_healthy
     volumes:
       - listmonk_data:/listmonk
-
-  worker:
-    build:
-      context: ..
-      dockerfile: apps/worker/Dockerfile
-    container_name: genmail-worker
-    env_file:
-      - ../.env
-    environment:
-      # Override URLs to use Docker service names (override .env which uses localhost)
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/genmail
-      REDIS_URL: redis://redis:6379/0
-      AI_SERVICE_URL: http://ai-service:8000
-      LISTMONK_BASE_URL: http://listmonk:9000
-      NODE_ENV: production
-      SEED_SECTORS: "true"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
 
 volumes:
   postgres_data:

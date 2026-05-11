@@ -1,8 +1,11 @@
 """GenMail AI Service - Microservicio de IA para Email Marketing."""
 
+import hashlib
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+import asyncpg
 import structlog
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -107,6 +110,59 @@ async def lifespan(app: FastAPI):
         mode=app.state.embedding_provider.mode,
         dimensions=app.state.embedding_provider.vector_dimensions,
     )
+    
+    # ------------------------------------------------------------------
+    # PostgreSQL connection and migration runner
+    # ------------------------------------------------------------------
+    database_url = os.getenv("DATABASE_URL", "")
+    if database_url:
+        try:
+            conn = await asyncpg.connect(database_url, timeout=10)
+            logger.info("postgres_connected", database_url=database_url.split("@")[-1] if "@" in database_url else "unknown")
+            
+            # Run pending migrations
+            migrations_dir = Path(__file__).parent.parent / "migrations"
+            if migrations_dir.exists():
+                migration_files = sorted(migrations_dir.glob("*.sql"))
+                for migration_file in migration_files:
+                    filename = migration_file.name
+                    
+                    # Check if already applied
+                    already_applied = await conn.fetchval(
+                        "SELECT COUNT(*) FROM migrations_log WHERE filename = $1",
+                        filename,
+                    )
+                    
+                    if already_applied and already_applied > 0:
+                        logger.info("migration_already_applied", filename=filename)
+                        continue
+                    
+                    # Read and execute migration
+                    sql = migration_file.read_text(encoding="utf-8")
+                    try:
+                        await conn.execute(sql)
+                        # Compute checksum
+                        checksum = hashlib.sha256(sql.encode()).hexdigest()[:16]
+                        await conn.execute(
+                            "INSERT INTO migrations_log (filename, checksum, success) VALUES ($1, $2, true)",
+                            filename, checksum,
+                        )
+                        logger.info("migration_applied", filename=filename)
+                    except Exception as mig_err:
+                        logger.error("migration_failed", filename=filename, error=str(mig_err))
+                        await conn.execute(
+                            "INSERT INTO migrations_log (filename, checksum, success) VALUES ($1, $2, false)",
+                            filename, hashlib.sha256(sql.encode()).hexdigest()[:16],
+                        )
+            else:
+                logger.warning("migrations_dir_not_found", path=str(migrations_dir))
+            
+            await conn.close()
+            logger.info("postgres_migrations_complete")
+        except Exception as db_err:
+            logger.error("postgres_connection_failed", error=str(db_err))
+    else:
+        logger.warning("no_database_url_configured")
     
     yield
     

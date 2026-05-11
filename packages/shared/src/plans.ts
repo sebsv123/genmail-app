@@ -48,7 +48,7 @@ export const PLANS: Record<string, Plan> = {
   STARTER: {
     name: "Starter",
     price: 29, // €/mes
-    stripePriceId: process.env.STRIPE_PRICE_STARTER || null,
+    stripePriceId: null,
     limits: {
       leads: 500,
       emailsPerMonth: 2000,
@@ -71,7 +71,7 @@ export const PLANS: Record<string, Plan> = {
   PRO: {
     name: "Pro",
     price: 79, // €/mes
-    stripePriceId: process.env.STRIPE_PRICE_PRO || null,
+    stripePriceId: null,
     limits: {
       leads: 5000,
       emailsPerMonth: 20000,
@@ -96,7 +96,7 @@ export const PLANS: Record<string, Plan> = {
   AGENCY: {
     name: "Agency",
     price: 199, // €/mes
-    stripePriceId: process.env.STRIPE_PRICE_AGENCY || null,
+    stripePriceId: null,
     limits: {
       leads: 50000,
       emailsPerMonth: 200000,
@@ -167,4 +167,13 @@ export function getAnnualSavings(plan: PlanKey): number {
   const monthlyTotal = PLANS[plan].price * 12;
   const yearlyTotal = getPlanPrice(plan, "yearly") * 12;
   return monthlyTotal - yearlyTotal;
+}
+
+export function getStripePriceId(plan: PlanKey): string | null {
+  const envMap: Record<string, string | undefined> = {
+    STARTER: (typeof process !== 'undefined') ? process.env.STRIPE_PRICE_STARTER : undefined,
+    PRO: (typeof process !== 'undefined') ? process.env.STRIPE_PRICE_PRO : undefined,
+    AGENCY: (typeof process !== 'undefined') ? process.env.STRIPE_PRICE_AGENCY : undefined,
+  }
+  return envMap[plan] || null
 }

@@ -1,5 +1,3 @@
-/// <reference types="node" />
-
 /**
  * GenMail Subscription Plans & Limits
  * All prices in Euros (€), VAT not included

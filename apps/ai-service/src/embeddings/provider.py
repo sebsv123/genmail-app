@@ -43,26 +43,25 @@ class EmbeddingProvider:
             print("[EmbeddingProvider] Redis not available, using memory-only cache")
             self._redis = None
 
-        if self.mode == "local":
-            try:
-                from sentence_transformers import SentenceTransformer
-                # BGE-M3: multilingual, Spanish native, 1024 dims
-                self._local_model = SentenceTransformer("BAAI/bge-m3")
-                # Try to use float16 for memory optimization (FASE 17D)
-                # Only on CUDA: CPU does not implement LayerNorm in half precision
-                try:
-                    import torch
-                    if torch.cuda.is_available():
-                        self._local_model = self._local_model.half()
-                except Exception:
-                    pass  # Fallback to float32 if not supported
-                print(f"[EmbeddingProvider] BGE-M3 loaded. Dimensions: {self._dimensions}")
-            except ImportError:
-                raise RuntimeError(
-                    "sentence-transformers not installed. "
-                    "Run: pip install sentence-transformers torch transformers"
-                )
-        else:
+        # Local mode (BGE-M3) disabled - using OpenAI/DeepSeek API only
+        # if self.mode == "local":
+        #     try:
+        #         from sentence_transformers import SentenceTransformer
+        #         self._local_model = SentenceTransformer("BAAI/bge-m3")
+        #         try:
+        #             import torch
+        #             if torch.cuda.is_available():
+        #                 self._local_model = self._local_model.half()
+        #         except Exception:
+        #             pass
+        #         print(f"[EmbeddingProvider] BGE-M3 loaded. Dimensions: {self._dimensions}")
+        #     except ImportError:
+        #         raise RuntimeError(
+        #             "sentence-transformers not installed. "
+        #             "Run: pip install sentence-transformers torch transformers"
+        #         )
+        # else:
+        if True:  # Always use API mode
             openai_key = os.environ.get("OPENAI_API_KEY")
             if openai_key:
                 self._openai_client = OpenAI(api_key=openai_key)

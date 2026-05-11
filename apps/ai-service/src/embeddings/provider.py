@@ -47,7 +47,10 @@ class EmbeddingProvider:
         # if self.mode == "local":
         #     try:
         #         from sentence_transformers import SentenceTransformer
-        #         self._local_model = SentenceTransformer("BAAI/bge-m3")
+        #         self._local_model = SentenceTransformer(
+        #             "BAAI/bge-m3",
+        #             model_kwargs={"torch_dtype": "float32"}
+        #         )
         #         try:
         #             import torch
         #             if torch.cuda.is_available():
